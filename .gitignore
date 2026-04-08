@@ -1,3 +1,6 @@
+### Claude Code
+.claude/
+
 ### C#
 # Build results
 [Bb]in/
@@ -57,7 +60,7 @@ publish/
 ._*
 
 # Custom folder icons
-Icon
+Icon
 
 # Volume root files
 .DocumentRevisions-V100
