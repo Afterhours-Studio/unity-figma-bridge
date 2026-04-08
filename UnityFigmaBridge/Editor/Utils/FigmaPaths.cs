@@ -1,0 +1,171 @@
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using UnityFigmaBridge.Editor.FigmaApi;
+using UnityFigmaBridge.Editor.Settings;
+
+namespace UnityFigmaBridge.Editor.Utils
+{
+    public static class FigmaPaths
+    {
+        private const string DEFAULT_ROOT = "Assets/Figma";
+
+        /// <summary>
+        /// Root folder for assets — reads from settings if available, otherwise uses default.
+        /// </summary>
+        public static string FigmaAssetsRootFolder
+        {
+            get
+            {
+                var settings = UnityFigmaBridgeImporter.Settings;
+                var path = settings != null ? settings.AssetOutputPath : null;
+                return string.IsNullOrEmpty(path) ? DEFAULT_ROOT : path;
+            }
+        }
+
+        // ─── Structural folders ──────────────────────────
+        public static string FigmaComponentPrefabFolder => $"{FigmaAssetsRootFolder}/Components";
+        public static string FigmaFontMaterialPresetsFolder => $"{FigmaAssetsRootFolder}/FontMaterialPresets";
+        public static string FigmaFontsFolder => $"{FigmaAssetsRootFolder}/Fonts";
+
+        // Legacy flat folders — kept for backwards compat lookups
+        public static string FigmaPagePrefabFolder => $"{FigmaAssetsRootFolder}/Pages";
+        public static string FigmaScreenPrefabFolder => $"{FigmaAssetsRootFolder}/Screens";
+        public static string FigmaImageFillFolder => $"{FigmaAssetsRootFolder}/ImageFills";
+        public static string FigmaServerRenderedImagesFolder => $"{FigmaAssetsRootFolder}/ServerRenderedImages";
+
+        // ─── Current context (set during import) ─────────
+        // These are set by the importer/generator as it traverses the tree
+        // so that path helpers can organize files into section/frame subfolders.
+        public static string CurrentSectionName { get; set; } = "";
+        public static string CurrentFrameName { get; set; } = "";
+
+        /// <summary>
+        /// Get the context-aware folder for the current section/frame.
+        /// Structure: Root/{Section}/{Frame}/
+        /// Falls back to Root/ if no context is set.
+        /// </summary>
+        private static string GetContextFolder()
+        {
+            var root = FigmaAssetsRootFolder;
+            if (!string.IsNullOrEmpty(CurrentSectionName))
+            {
+                root = $"{root}/{MakeValidFileName(CurrentSectionName)}";
+                if (!string.IsNullOrEmpty(CurrentFrameName))
+                    root = $"{root}/{MakeValidFileName(CurrentFrameName)}";
+            }
+            else if (!string.IsNullOrEmpty(CurrentFrameName))
+            {
+                root = $"{root}/{MakeValidFileName(CurrentFrameName)}";
+            }
+            return root;
+        }
+
+        // ─── Path helpers (context-aware) ────────────────
+
+        public static string GetPathForImageFill(string imageId)
+        {
+            var folder = $"{GetContextFolder()}/ImageFills";
+            return $"{folder}/{imageId}.png";
+        }
+
+        public static string GetPathForServerRenderedImage(string nodeId,
+            List<ServerRenderNodeData> serverRenderNodeData)
+        {
+            var matchingEntry = serverRenderNodeData.FirstOrDefault(node => node.SourceNode.id == nodeId);
+            if (matchingEntry != null && matchingEntry.RenderType == ServerRenderType.Export)
+            {
+                var folder = GetContextFolder();
+                return $"{folder}/{MakeValidFileName(matchingEntry.SourceNode.name.Trim())}.png";
+            }
+
+            var renderFolder = $"{GetContextFolder()}/Renders";
+            var safeNodeId = FigmaDataUtils.ReplaceUnsafeFileCharactersForNodeId(nodeId);
+            return $"{renderFolder}/{safeNodeId}.png";
+        }
+
+        public static string GetPathForScreenPrefab(Node node, int duplicateCount)
+        {
+            var folder = $"{GetContextFolder()}/Screens";
+            return $"{folder}/{GetFileNameForNode(node, duplicateCount)}.prefab";
+        }
+
+        public static string GetPathForPagePrefab(Node node, int duplicateCount)
+        {
+            return $"{FigmaPagePrefabFolder}/{GetFileNameForNode(node, duplicateCount)}.prefab";
+        }
+
+        public static string GetPathForComponentPrefab(string nodeName, int duplicateCount)
+        {
+            if (duplicateCount > 0) nodeName += $"_{duplicateCount}";
+            nodeName = ReplaceUnsafeCharacters(nodeName);
+            return $"{FigmaComponentPrefabFolder}/{nodeName}.prefab";
+        }
+
+        // ─── Utilities ───────────────────────────────────
+
+        public static string GetFileNameForNode(Node node, int duplicateCount)
+        {
+            var safeNodeTitle = ReplaceUnsafeCharacters(node.name);
+            if (duplicateCount > 0) safeNodeTitle += $"_{duplicateCount}";
+            return safeNodeTitle;
+        }
+
+        private static string ReplaceUnsafeCharacters(string inputFilename)
+        {
+            var safeFilename = inputFilename.Trim();
+            return MakeValidFileName(safeFilename);
+        }
+
+        public static string MakeValidFileName(string name)
+        {
+            string invalidChars = System.Text.RegularExpressions.Regex.Escape(
+                new string(Path.GetInvalidFileNameChars()));
+            invalidChars += ".";
+            string invalidRegStr = string.Format(@"([{0}]*\.+$)|([{0}]+)", invalidChars);
+            return System.Text.RegularExpressions.Regex.Replace(name, invalidRegStr, "_");
+        }
+
+        /// <summary>
+        /// Set the current context for path generation.
+        /// Call this as you traverse sections/frames during import.
+        /// </summary>
+        public static void SetContext(string sectionName, string frameName)
+        {
+            CurrentSectionName = sectionName ?? "";
+            CurrentFrameName = frameName ?? "";
+        }
+
+        public static void ClearContext()
+        {
+            CurrentSectionName = "";
+            CurrentFrameName = "";
+        }
+
+        public static void CreateRequiredDirectories()
+        {
+            var requiredDirs = new[]
+            {
+                FigmaPagePrefabFolder,
+                FigmaComponentPrefabFolder,
+                FigmaFontMaterialPresetsFolder,
+                FigmaFontsFolder,
+            };
+            foreach (var dir in requiredDirs)
+            {
+                if (!Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+            }
+        }
+
+        /// <summary>
+        /// Ensure a directory exists for a given file path.
+        /// </summary>
+        public static void EnsureDirectoryForFile(string filePath)
+        {
+            var dir = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+        }
+    }
+}
