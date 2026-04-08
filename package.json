@@ -1,15 +1,16 @@
 {
-  "name": "com.unityfigma.bridge",
+  "name": "com.h1dr0n.unity.figma.bridge",
   "displayName": "Unity Figma Bridge",
   "description": "Tool to build Figma documents and Assets as native Unity UI",
   "keywords": [
     "unity",
     "figma"
   ],
+  "author": "h1dr0n",
   "license": "MIT",
   "unity": "2021.3",
   "unityRelease": "0f1",
-  "version": "1.0.9",
+  "version": "1.0.0",
   "type": "library",
   "hideInEditor": false,
   "dependencies": {
