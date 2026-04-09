@@ -10,6 +10,9 @@ namespace Afterhours.FigmaBridge.Editor
     /// </summary>
     internal static class SettingsInspectorDrawer
     {
+        private static readonly string[] SettingsTabs = { "Import", "Build" };
+        private static int s_SettingsTab;
+
         private static GUIStyle s_RedStyle;
         private static GUIStyle s_GreenStyle;
 
@@ -21,33 +24,48 @@ namespace Afterhours.FigmaBridge.Editor
         }
 
         /// <summary>
-        /// Draw all settings properties with short labels and tooltips.
+        /// Draw settings split into Import / Build sub-tabs.
         /// </summary>
-        public static void DrawSettings(UnityFigmaBridgeSettings settings, SerializedObject serializedObject)
+        public static void DrawSettings(UnityFigmaBridgeSettings settings, SerializedObject so)
         {
             EnsureStyles();
-            serializedObject.Update();
-
-            DrawProp(serializedObject, "DocumentUrl", "Figma URL", "Figma URL - supports Document, Page, and Frame URLs with node-id");
+            s_SettingsTab = GUILayout.Toolbar(s_SettingsTab, SettingsTabs);
             GUILayout.Space(6);
-            DrawProp(serializedObject, "RunTimeAssetsScenePath", "Scene Path", "Scene path for prototype assets. Created automatically if it does not exist.");
-            DrawProp(serializedObject, "AssetOutputPath", "Output Path", "Folder to store imported Figma assets (prefabs, images, fonts)");
-            DrawCanvasSize(serializedObject);
-            DrawProp(serializedObject, "ServerRenderImageScale", "Render Scale", "Scale multiplier for server-rendered images");
-            DrawProp(serializedObject, "EnableAutoLayout", "Auto Layout", "Convert Figma Auto Layout to Unity Layout Groups (Horizontal/Vertical)");
+            so.Update();
 
-            GUILayout.Space(6);
-            DrawProp(serializedObject, "EnableGoogleFontsDownloads", "Google Fonts", "Download missing fonts from Google Fonts automatically");
-            DrawProp(serializedObject, "SkipTextImages", "Skip Text Images", "Never server-render text nodes — use TMP/Text components instead of downloading images");
-            DrawProp(serializedObject, "TextMode", "Text Mode", "Auto = TMP if available, else legacy Text. Force TextMeshPro or LegacyText to override.");
-            DrawProp(serializedObject, "OnlyImportExportNodes", "Export Only", "Only import nodes marked for Export in Figma (ignores all other nodes)");
-            DrawProp(serializedObject, "OnlyImportSelectedPages", "Select Pages", "Only import selected pages instead of all");
-            DrawProp(serializedObject, "SyncDepth", "Sync Depth", "Layer depth: 0 = full depth, 1 = top-level only, 2+ = descend N levels");
+            if (s_SettingsTab == 0)
+                DrawImportSettings(so);
+            else
+                DrawBuildSettings(so);
 
-            serializedObject.ApplyModifiedProperties();
+            so.ApplyModifiedProperties();
 
-            GUILayout.Space(8);
-            DrawUrlValidation(settings);
+            if (s_SettingsTab == 0)
+            {
+                GUILayout.Space(8);
+                DrawUrlValidation(settings);
+            }
+        }
+
+        private static void DrawImportSettings(SerializedObject so)
+        {
+            DrawProp(so, "DocumentUrl",               "Figma URL",    "Figma URL - supports Document, Page, and Frame URLs with node-id");
+            GUILayout.Space(4);
+            DrawProp(so, "AssetOutputPath",           "Output Path",  "Folder to store imported Figma assets (prefabs, images, fonts)");
+            DrawProp(so, "ServerRenderImageScale",    "Render Scale", "Scale multiplier for server-rendered images");
+            DrawProp(so, "EnableGoogleFontsDownloads","Google Fonts", "Download missing fonts from Google Fonts automatically");
+            DrawProp(so, "OnlyImportExportNodes",     "Export Only",  "Only import nodes marked for Export in Figma (ignores all other nodes)");
+            DrawProp(so, "SyncDepth",                 "Sync Depth",   "Layer depth: 0 = full depth, 1 = top-level only, 2+ = descend N levels");
+        }
+
+        private static void DrawBuildSettings(SerializedObject so)
+        {
+            DrawProp(so, "RunTimeAssetsScenePath", "Scene Path",       "Scene path for runtime assets. Created automatically if it does not exist.");
+            DrawCanvasSize(so);
+            DrawProp(so, "EnableAutoLayout",  "Auto Layout",           "Convert Figma Auto Layout to Unity Layout Groups (Horizontal/Vertical)");
+            DrawProp(so, "SkipTextImages",    "Skip Text Images",      "Never server-render text nodes — use TMP/Text components instead of downloading images");
+            DrawProp(so, "TextMode",          "Text Mode",             "Auto = TMP if available, else legacy Text. Force TextMeshPro or LegacyText to override.");
+            DrawProp(so, "SmartNaming",       "Smart Naming",          "Format node names to snake_case or PascalCase. [Tags] are stripped automatically.");
         }
 
         private static void DrawCanvasSize(SerializedObject so)
@@ -77,7 +95,6 @@ namespace Afterhours.FigmaBridge.Editor
         public static void DrawUrlValidation(UnityFigmaBridgeSettings settings)
         {
             EnsureStyles();
-
             var (isValid, fileId) = FigmaApiUtils.GetFigmaDocumentIdFromUrl(settings.DocumentUrl);
             if (!isValid)
             {

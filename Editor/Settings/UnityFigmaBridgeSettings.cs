@@ -42,12 +42,12 @@ namespace Afterhours.FigmaBridge.Editor
         [Tooltip("Only import nodes marked for Export in Figma (ignores all other nodes)")]
         public bool OnlyImportExportNodes = true;
 
-        [Tooltip("If true, download only selected pages and screens")]
-        public bool OnlyImportSelectedPages = false;
-
         [Tooltip("Layer depth for import: 0 = full depth, 1 = top-level only, 2+ = descend N levels")]
         [Range(0, 10)]
         public int SyncDepth = 5;
+
+        [Tooltip("Format node names to snake_case or PascalCase based on Figma naming")]
+        public bool SmartNaming = true;
 
         [HideInInspector]
         public string SelectedSection = "";

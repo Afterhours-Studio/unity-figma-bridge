@@ -129,37 +129,12 @@ namespace Afterhours.FigmaBridge.Editor
 
             var pageNodeList = FigmaDataUtils.GetPageNodes(figmaFile);
 
-            if (s_UnityFigmaBridgeSettings.OnlyImportSelectedPages)
+            if (s_UnityFigmaBridgeSettings.PageDataList.Count > 0)
             {
-                var downloadPageNodeIdList = pageNodeList.Select(p => p.id).ToList();
-                downloadPageNodeIdList.Sort();
-
-                var settingsPageDataIdList = s_UnityFigmaBridgeSettings.PageDataList.Select(p => p.NodeId).ToList();
-                settingsPageDataIdList.Sort();
-
-                if (!settingsPageDataIdList.SequenceEqual(downloadPageNodeIdList))
-                {
-                    ReportError("The pages found in the Figma document have changed - check your settings file and Sync again when ready", "");
-
-                    s_UnityFigmaBridgeSettings.RefreshForUpdatedPages(figmaFile);
-                    Selection.activeObject = s_UnityFigmaBridgeSettings;
-                    EditorUtility.SetDirty(s_UnityFigmaBridgeSettings);
-                    AssetDatabase.SaveAssetIfDirty(s_UnityFigmaBridgeSettings);
-                    AssetDatabase.Refresh();
-
-                    return;
-                }
-
-                var enabledPageIdList = s_UnityFigmaBridgeSettings.PageDataList.Where(p => p.Selected).Select(p => p.NodeId).ToList();
-
-                if (enabledPageIdList.Count <= 0)
-                {
-                    ReportError("'Import Selected Pages' is selected, but no pages are selected for import", "");
-                    SelectSettings();
-                    return;
-                }
-
-                pageNodeList = pageNodeList.Where(p => enabledPageIdList.Contains(p.id)).ToList();
+                var enabledPageIdList = s_UnityFigmaBridgeSettings.PageDataList
+                    .Where(p => p.Selected).Select(p => p.NodeId).ToList();
+                if (enabledPageIdList.Count > 0)
+                    pageNodeList = pageNodeList.Where(p => enabledPageIdList.Contains(p.id)).ToList();
             }
 
             await ImportDocument(s_UnityFigmaBridgeSettings.FileId, figmaFile, pageNodeList, SelectedFrameIds);

@@ -11,29 +11,15 @@ namespace Afterhours.FigmaBridge.Editor
         public override void OnInspectorGUI()
         {
             var targetSettingsObject = target as UnityFigmaBridgeSettings;
-            var onlyImportPages = targetSettingsObject.OnlyImportSelectedPages;
             var preEditUrl = targetSettingsObject.DocumentUrl;
 
             base.OnInspectorGUI();
 
-            // If the URL has changed, reset page selection
+            // If the URL has changed, clear page list so it gets re-fetched
             if (targetSettingsObject.DocumentUrl != preEditUrl)
-            {
-                if (targetSettingsObject.OnlyImportSelectedPages)
-                {
-                    targetSettingsObject.OnlyImportSelectedPages = false;
-                    targetSettingsObject.PageDataList.Clear();
-                }
-            }
-            else if (targetSettingsObject.OnlyImportSelectedPages != onlyImportPages)
-            {
-                if (targetSettingsObject.OnlyImportSelectedPages)
-                    RefreshPageList(targetSettingsObject);
-                else
-                    targetSettingsObject.PageDataList.Clear();
-            }
+                targetSettingsObject.PageDataList.Clear();
 
-            if (targetSettingsObject.OnlyImportSelectedPages)
+            if (targetSettingsObject.PageDataList.Count > 0)
             {
                 GUILayout.Space(20);
                 var changed = SettingsInspectorDrawer.DrawPageList(
@@ -44,19 +30,6 @@ namespace Afterhours.FigmaBridge.Editor
                     AssetDatabase.SaveAssetIfDirty(targetSettingsObject);
                 }
             }
-        }
-
-        private static async void RefreshPageList(UnityFigmaBridgeSettings settings)
-        {
-            var requirementsMet = UnityFigmaBridgeImporter.CheckRequirements();
-            if (!requirementsMet) return;
-
-            var figmaFile = await UnityFigmaBridgeImporter.DownloadFigmaDocument(settings.FileId);
-            if (figmaFile == null) return;
-
-            settings.RefreshForUpdatedPages(figmaFile);
-            EditorUtility.SetDirty(settings);
-            AssetDatabase.SaveAssetIfDirty(settings);
         }
     }
 }
