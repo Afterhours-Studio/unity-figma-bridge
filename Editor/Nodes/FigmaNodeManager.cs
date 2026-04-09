@@ -432,12 +432,16 @@ namespace Afterhours.FigmaBridge.Editor
                     if (ShouldUseTMP(figmaImportProcessData))
                     {
                         nodeGameObject.AddComponent<TextMeshProUGUI>();
-                        nodeGameObject.name += " (TMP)";
+                        nodeGameObject.name = figmaImportProcessData.Settings.SmartNaming
+                            ? FigmaNodeNaming.FormatTextName(nodeGameObject.name)
+                            : nodeGameObject.name + " (TMP)";
                     }
                     else
                     {
                         nodeGameObject.AddComponent<Text>();
-                        nodeGameObject.name += " (Text)";
+                        nodeGameObject.name = figmaImportProcessData.Settings.SmartNaming
+                            ? FigmaNodeNaming.FormatTextName(nodeGameObject.name)
+                            : nodeGameObject.name + " (Text)";
                     }
                     break;
                 case NodeType.DOCUMENT:

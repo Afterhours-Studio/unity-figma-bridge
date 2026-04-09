@@ -22,12 +22,17 @@ namespace Afterhours.FigmaBridge.Editor
         public static void BuildSingleFrame(Canvas rootCanvas, Node frameNode, Node parentNode,
             FigmaBuildContext figmaImportProcessData)
         {
+            FigmaNodeNaming.ResetCounter();
+
             if (parentNode != null && parentNode.type == NodeType.SECTION)
                 FigmaPaths.SetContext(parentNode.name, "");
             FigmaPaths.CurrentFrameName = frameNode.name;
 
             // Root frame = empty RectTransform container, stretched full screen
-            var go = new GameObject(frameNode.name, typeof(RectTransform));
+            var frameName = figmaImportProcessData.Settings.SmartNaming
+                ? FigmaNodeNaming.FormatName(frameNode.name)
+                : frameNode.name;
+            var go = new GameObject(frameName, typeof(RectTransform));
             go.transform.SetParent(rootCanvas.transform, false);
             var rt = go.transform as RectTransform;
             rt.anchorMin = Vector2.zero;
@@ -72,6 +77,9 @@ namespace Afterhours.FigmaBridge.Editor
                 }
             }
             if (string.IsNullOrWhiteSpace(nodeName)) nodeName = node.name;
+
+            if (processData.Settings.SmartNaming)
+                nodeName = FigmaNodeNaming.FormatName(nodeName);
 
             var go = new GameObject(nodeName, typeof(RectTransform));
             go.transform.SetParent(parentTransform, false);
@@ -466,7 +474,9 @@ namespace Afterhours.FigmaBridge.Editor
         {
             if (node.style == null) return;
 
-            go.name += " (TMP)";
+            go.name = processData.Settings.SmartNaming
+                ? FigmaNodeNaming.FormatTextName(go.name)
+                : go.name + " (TMP)";
             var text = go.AddComponent<TMPro.TextMeshProUGUI>();
             text.text = node.characters;
             text.fontSize = node.style.fontSize;
