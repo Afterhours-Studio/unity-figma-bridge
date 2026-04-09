@@ -1,15 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using UnityFigmaBridge.Editor.Fonts;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityFigmaBridge.Editor.FigmaApi;
-using UnityFigmaBridge.Editor.Utils;
-using UnityFigmaBridge.Runtime.UI;
 
-namespace UnityFigmaBridge.Editor.Nodes
+namespace Afterhours.FigmaBridge.Editor
 {
     /// <summary>
     /// Root generator for figma file/document. Constructs a native UI system and all assets
@@ -528,7 +524,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             {
                 var outlineColor = FigmaDataUtils.GetUnityFillColor(node.strokes[0]);
                 var outlineWidth = Mathf.Clamp(5f * node.strokeWeight / node.style.fontSize, 0f, 0.5f);
-                var mat = Fonts.FontManager.GetEffectMaterialPreset(
+                var mat = FontManager.GetEffectMaterialPreset(
                     fontMapping, false, UnityEngine.Color.white, Vector2.zero,
                     true, outlineColor, outlineWidth);
                 if (mat != null) text.fontMaterial = mat;

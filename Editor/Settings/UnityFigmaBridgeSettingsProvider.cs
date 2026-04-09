@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-namespace UnityFigmaBridge.Editor.Settings
+namespace Afterhours.FigmaBridge.Editor
 {
     public class UnityFigmaBridgeSettingsProvider : SettingsProvider
     {

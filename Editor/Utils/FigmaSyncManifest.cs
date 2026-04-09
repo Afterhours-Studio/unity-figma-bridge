@@ -1,6 +1,6 @@
 using System;
 
-namespace UnityFigmaBridge.Editor.Utils
+namespace Afterhours.FigmaBridge.Editor
 {
     [Serializable]
     internal sealed class FrameRecord

@@ -2,7 +2,7 @@
 using TMPro;
 using UnityEngine;
 
-namespace UnityFigmaBridge.Editor.Fonts
+namespace Afterhours.FigmaBridge.Editor
 {
     // Character set code adapted from TMPRo_FontAssetCreatorWindow
     // //https://forum.unity.com/threads/tmp-1-4-1-creating-static-font-assets-via-editor-script.719471/

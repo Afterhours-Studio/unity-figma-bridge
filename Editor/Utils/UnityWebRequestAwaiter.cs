@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using UnityEngine;
 using UnityEngine.Networking;
 
-namespace UnityFigmaBridge.Editor.Utils
+namespace Afterhours.FigmaBridge.Editor
 {
 	
     /// <summary>

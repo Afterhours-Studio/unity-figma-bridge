@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace UnityFigmaBridge.Editor.Settings
+namespace Afterhours.FigmaBridge.Editor
 {
     [CustomEditor(typeof(UnityFigmaBridgeSettings))]
     public sealed class UnityFigmaBridgeSettingsEditor : UnityEditor.Editor

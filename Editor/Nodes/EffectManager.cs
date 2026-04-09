@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityFigmaBridge.Editor.FigmaApi;
 
-namespace UnityFigmaBridge.Editor.Nodes
+namespace Afterhours.FigmaBridge.Editor
 {
     /// <summary>
     /// Applies effects to nodes where required. 

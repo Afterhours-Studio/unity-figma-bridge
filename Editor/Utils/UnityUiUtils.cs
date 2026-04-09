@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace UnityFigmaBridge.Editor.Utils
+namespace Afterhours.FigmaBridge.Editor
 {
     public static class UnityUiUtils
     {

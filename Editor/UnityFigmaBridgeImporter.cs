@@ -9,15 +9,9 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using UnityFigmaBridge.Editor.FigmaApi;
-using UnityFigmaBridge.Editor.Fonts;
-using UnityFigmaBridge.Editor.Nodes;
-using UnityFigmaBridge.Editor.Settings;
-using UnityFigmaBridge.Editor.Utils;
-using UnityFigmaBridge.Runtime.UI;
 using Object = UnityEngine.Object;
 
-namespace UnityFigmaBridge.Editor
+namespace Afterhours.FigmaBridge.Editor
 {
     /// <summary>
     ///  Manages Figma importing and document creation
@@ -654,10 +648,10 @@ namespace UnityFigmaBridge.Editor
             AssetDatabase.Refresh();
         }
 
-        private static List<Utils.FrameRecord> CollectImportedFrameRecords(
+        private static List<FrameRecord> CollectImportedFrameRecords(
             FigmaFile file, List<string> selectedFrameIds, string sectionFilter)
         {
-            var records = new List<Utils.FrameRecord>();
+            var records = new List<FrameRecord>();
             foreach (var page in file.document.children)
             {
                 if (page.children == null) continue;
@@ -671,14 +665,14 @@ namespace UnityFigmaBridge.Editor
                         {
                             if (frame.type != NodeType.FRAME) continue;
                             if (selectedFrameIds != null && selectedFrameIds.Count > 0 && !selectedFrameIds.Contains(frame.id)) continue;
-                            records.Add(new Utils.FrameRecord(frame.id, frame.name, child.name, page.name));
+                            records.Add(new FrameRecord(frame.id, frame.name, child.name, page.name));
                         }
                     }
                     else if (child.type == NodeType.FRAME)
                     {
                         if (!string.IsNullOrEmpty(sectionFilter)) continue;
                         if (selectedFrameIds != null && selectedFrameIds.Count > 0 && !selectedFrameIds.Contains(child.id)) continue;
-                        records.Add(new Utils.FrameRecord(child.id, child.name, "", page.name));
+                        records.Add(new FrameRecord(child.id, child.name, "", page.name));
                     }
                 }
             }

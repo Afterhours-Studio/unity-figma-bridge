@@ -2,7 +2,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace UnityFigmaBridge.Editor.Utils
+namespace Afterhours.FigmaBridge.Editor
 {
     
     /// <summary>

@@ -8,9 +8,8 @@ using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
-using UnityFigmaBridge.Editor.Utils;
 
-namespace UnityFigmaBridge.Editor.Fonts
+namespace Afterhours.FigmaBridge.Editor
 {
     
     // Using font list from https://github.com/jonathantneal/google-fonts-complete

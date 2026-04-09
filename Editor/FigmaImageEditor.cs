@@ -1,8 +1,8 @@
+using Afterhours.FigmaBridge.Runtime;
 using UnityEditor;
 using UnityEditor.UI;
-using UnityFigmaBridge.Runtime.UI;
 
-namespace UnityFigmaBridge.Editor.UnityComponentEditors
+namespace Afterhours.FigmaBridge.Editor
 {
     [CustomEditor(typeof(FigmaImage), false)]
     [CanEditMultipleObjects]

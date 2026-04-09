@@ -7,10 +7,8 @@ using Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
-using UnityFigmaBridge.Editor.Settings;
-using UnityFigmaBridge.Editor.Utils;
 
-namespace UnityFigmaBridge.Editor.FigmaApi
+namespace Afterhours.FigmaBridge.Editor
 {
     /// <summary>
     /// Parsed result from a Figma URL — contains file ID and optional node ID.

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace UnityFigmaBridge.Editor.FigmaApi
+namespace Afterhours.FigmaBridge.Editor
 {
     /// <summary>
     /// Serialized class representing a bundle image fill data downloaded from Figma server
@@ -132,7 +132,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <summary>
         /// Background color of the canvas.
         /// </summary>
-        public Color backgroundColor;
+        public FigmaColor backgroundColor;
         /// <summary>
         ///[DEPRECATED] Node ID that corresponds to the start frame for prototypes.
         /// </summary>
@@ -452,7 +452,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         
     }
     
-    public class Color
+    public class FigmaColor
     {
         public float r;
         public float g;
@@ -632,7 +632,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <summary>
         /// Color of the grid
         /// </summary>
-        public Color color;
+        public FigmaColor color;
         
         // The following properties are only meaningful for directional grids (COLUMNS or ROWS)
 
@@ -699,7 +699,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <summary>
         /// The color of the shadow
         /// </summary>
-        public Color color;
+        public FigmaColor color;
 
         /// <summary>
         /// Blend mode of the shadow
@@ -783,7 +783,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <summary>
         /// Solid color of the paint
         /// </summary>
-        public Color color;
+        public FigmaColor color;
         
         
         // For gradient paints:
@@ -891,7 +891,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
     public class ColorStop
     {
         public float position; // Value between 0 and 1 representing position along gradient axis
-        public Color color; //Color attached to corresponding position
+        public FigmaColor color; //Color attached to corresponding position
     }
 
     /// <summary>

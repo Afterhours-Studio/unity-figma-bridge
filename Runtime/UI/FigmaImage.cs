@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
 
-namespace UnityFigmaBridge.Runtime.UI
+namespace Afterhours.FigmaBridge.Runtime
 {
     /// <summary>
     /// Figma Image UI Component. Used in conjunction with FigmaImageShader to render Figma components with appropriate

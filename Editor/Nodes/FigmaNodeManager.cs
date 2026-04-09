@@ -1,16 +1,12 @@
 ﻿using System;
+using Afterhours.FigmaBridge.Runtime;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityFigmaBridge.Editor.FigmaApi;
-using UnityFigmaBridge.Editor.Settings;
-using UnityFigmaBridge.Editor.Fonts;
-using UnityFigmaBridge.Editor.Utils;
-using UnityFigmaBridge.Runtime.UI;
 using Color = UnityEngine.Color;
 
-namespace UnityFigmaBridge.Editor.Nodes
+namespace Afterhours.FigmaBridge.Editor
 {
     public static class FigmaNodeManager
     {
@@ -23,7 +19,7 @@ namespace UnityFigmaBridge.Editor.Nodes
         {
             // If this file compiles, TMPro is present — no runtime reflection needed.
             if (data?.Settings == null) return true;
-            return data.Settings.TextMode != Settings.TextRenderMode.LegacyText;
+            return data.Settings.TextMode != TextRenderMode.LegacyText;
         }
 
         /// <summary>

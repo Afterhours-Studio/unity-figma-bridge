@@ -1,9 +1,8 @@
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using UnityFigmaBridge.Editor.FigmaApi;
 
-namespace UnityFigmaBridge.Editor.Settings
+namespace Afterhours.FigmaBridge.Editor
 {
     /// <summary>
     /// Shared drawing helper for UnityFigmaBridgeSettings - used by both the

@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityFigmaBridge.Editor.FigmaApi;
 
-namespace UnityFigmaBridge.Editor.Settings
+namespace Afterhours.FigmaBridge.Editor
 {
     public class UnityFigmaBridgeSettings : ScriptableObject
     {

@@ -1,10 +1,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using UnityFigmaBridge.Editor.FigmaApi;
-using UnityFigmaBridge.Editor.Settings;
 
-namespace UnityFigmaBridge.Editor.Utils
+namespace Afterhours.FigmaBridge.Editor
 {
     public static class FigmaPaths
     {

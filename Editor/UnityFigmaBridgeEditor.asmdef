@@ -1,5 +1,5 @@
 {
-    "name": "UnityFigmaBridgeEditor",
+    "name": "Afterhours.FigmaBridge.Editor",
     "rootNamespace": "",
     "references": [
         "GUID:0dd5667420e62c74d80bad94e7745a27",

@@ -2,7 +2,7 @@
 using System.Linq;
 using UnityEngine;
 
-namespace UnityFigmaBridge.Editor.FigmaApi
+namespace Afterhours.FigmaBridge.Editor
 {
     /// <summary>
     /// Utilities to convert from Figma data types to Unity data types, and query Figma Data structures
@@ -73,7 +73,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// </summary>
         /// <param name="color"></param>
         /// <returns></returns>
-        public static UnityEngine.Color ToUnityColor(Color color)
+        public static UnityEngine.Color ToUnityColor(FigmaColor color)
         {
             return new UnityEngine.Color(color.r, color.g, color.b, color.a);
         }

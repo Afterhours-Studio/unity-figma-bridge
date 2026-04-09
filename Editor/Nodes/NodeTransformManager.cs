@@ -1,9 +1,8 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityFigmaBridge.Editor.FigmaApi;
 
-namespace UnityFigmaBridge.Editor.Nodes
+namespace Afterhours.FigmaBridge.Editor
 {
     public static class NodeTransformManager
     {

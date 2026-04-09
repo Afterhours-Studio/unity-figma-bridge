@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using UnityEngine.EventSystems;
 
-namespace UnityFigmaBridge.Runtime.UI
+namespace Afterhours.FigmaBridge.Runtime
 {
   
     /// <summary>

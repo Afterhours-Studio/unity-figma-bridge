@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
-using UnityFigmaBridge.Editor.FigmaApi;
-using UnityFigmaBridge.Editor.Settings;
 
-namespace UnityFigmaBridge.Editor
+namespace Afterhours.FigmaBridge.Editor
 {
     public sealed class FigmaBridgeEditorWindow : EditorWindow
     {
@@ -443,10 +441,10 @@ namespace UnityFigmaBridge.Editor
             // Cache status card
             BeginCard("Document Cache");
 
-            var cacheExists = UnityFigmaBridge.Editor.Utils.FigmaDocumentCache.Exists;
+            var cacheExists = FigmaDocumentCache.Exists;
             if (cacheExists)
             {
-                var lastMod = UnityFigmaBridge.Editor.Utils.FigmaDocumentCache.LastModified;
+                var lastMod = FigmaDocumentCache.LastModified;
                 var timeStr = lastMod.HasValue ? lastMod.Value.ToString("yyyy-MM-dd HH:mm:ss") : "unknown";
                 DrawKeyValue("Status", "Cached", SuccessText);
                 DrawKeyValue("Updated", timeStr);
@@ -595,7 +593,7 @@ namespace UnityFigmaBridge.Editor
         private void LoadBuildFrames()
         {
             _buildFrames = new List<BuildFrameEntry>();
-            var figmaFile = UnityFigmaBridge.Editor.Utils.FigmaDocumentCache.Load();
+            var figmaFile = FigmaDocumentCache.Load();
             if (figmaFile?.document?.children == null) return;
 
             var sectionFilter = _settings != null ? _settings.SelectedSection : "";
@@ -633,8 +631,8 @@ namespace UnityFigmaBridge.Editor
 
         private void AddBuildFrameEntry(Node frame, string pageName, string sectionName)
         {
-            var safeName = UnityFigmaBridge.Editor.Utils.FigmaPaths.MakeValidFileName(frame.name.Trim());
-            var folderPath = UnityFigmaBridge.Editor.Utils.FigmaPaths.GetContextFolder(sectionName, safeName);
+            var safeName = FigmaPaths.MakeValidFileName(frame.name.Trim());
+            var folderPath = FigmaPaths.GetContextFolder(sectionName, safeName);
 
             // Only show frames that have been synced (marked by importer)
             if (!System.IO.File.Exists(System.IO.Path.Combine(folderPath, ".synced"))) return;
@@ -697,7 +695,7 @@ namespace UnityFigmaBridge.Editor
             try
             {
                 var json = _cacheRefreshRequest.downloadHandler.text;
-                var figmaFile = Newtonsoft.Json.JsonConvert.DeserializeObject<FigmaApi.FigmaFile>(json,
+                var figmaFile = Newtonsoft.Json.JsonConvert.DeserializeObject<FigmaFile>(json,
                     new Newtonsoft.Json.JsonSerializerSettings
                     {
                         MissingMemberHandling = Newtonsoft.Json.MissingMemberHandling.Ignore,
@@ -706,7 +704,7 @@ namespace UnityFigmaBridge.Editor
                         Error = (sender, args) => { args.ErrorContext.Handled = true; },
                     });
 
-                UnityFigmaBridge.Editor.Utils.FigmaDocumentCache.Save(figmaFile);
+                FigmaDocumentCache.Save(figmaFile);
                 LoadBuildFrames();
                 AppendLog("Cache refreshed successfully");
             }
@@ -1045,7 +1043,7 @@ namespace UnityFigmaBridge.Editor
             if (figmaFile?.document?.children == null) return;
 
             var sectionFilter = _settings != null ? _settings.SelectedSection : "";
-            var outputRoot = UnityFigmaBridge.Editor.Utils.FigmaPaths.FigmaSectionsFolder;
+            var outputRoot = FigmaPaths.FigmaSectionsFolder;
 
             foreach (var page in figmaFile.document.children)
             {
@@ -1081,7 +1079,7 @@ namespace UnityFigmaBridge.Editor
 
         private void AddFrameEntry(Node frame, string pageName, string sectionName, string outputRoot)
         {
-            var safeName = UnityFigmaBridge.Editor.Utils.FigmaPaths.MakeValidFileName(frame.name.Trim());
+            var safeName = FigmaPaths.MakeValidFileName(frame.name.Trim());
             var prefabPath = $"{outputRoot}/{safeName}.prefab";
             var exists = System.IO.File.Exists(prefabPath);
 

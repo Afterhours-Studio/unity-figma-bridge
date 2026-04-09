@@ -1,10 +1,8 @@
 ﻿using System;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityFigmaBridge.Editor.FigmaApi;
-using UnityFigmaBridge.Editor.Utils;
 
-namespace UnityFigmaBridge.Editor.Nodes
+namespace Afterhours.FigmaBridge.Editor
 {
     /// <summary>
     /// Manages layout functionality for Figma nodes

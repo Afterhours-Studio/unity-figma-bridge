@@ -2,9 +2,8 @@ using System;
 using System.IO;
 using Newtonsoft.Json;
 using UnityEngine;
-using UnityFigmaBridge.Editor.FigmaApi;
 
-namespace UnityFigmaBridge.Editor.Utils
+namespace Afterhours.FigmaBridge.Editor
 {
     /// <summary>
     /// Caches the Figma document JSON to disk so the Build tab can read it without re-fetching.

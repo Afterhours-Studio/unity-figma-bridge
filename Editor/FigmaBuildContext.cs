@@ -1,9 +1,6 @@
 using System.Collections.Generic;
-using UnityFigmaBridge.Editor.FigmaApi;
-using UnityFigmaBridge.Editor.Fonts;
-using UnityFigmaBridge.Editor.Settings;
 
-namespace UnityFigmaBridge.Editor
+namespace Afterhours.FigmaBridge.Editor
 {
     /// <summary>
     /// Data passed through the build pipeline for a single frame

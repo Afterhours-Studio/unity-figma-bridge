@@ -3,13 +3,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEditor;
-using UnityEngine;
-using UnityFigmaBridge.Editor.FigmaApi;
-using UnityFigmaBridge.Editor.Utils;
 using Color = UnityEngine.Color;
-using MathUtils = UnityFigmaBridge.Editor.Utils.MathUtils;
+using UnityEngine;
 
-namespace UnityFigmaBridge.Editor.Fonts
+namespace Afterhours.FigmaBridge.Editor
 {
     
     public class FigmaFontMapEntry

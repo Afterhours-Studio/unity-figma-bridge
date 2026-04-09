@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace UnityFigmaBridge
+namespace Afterhours.FigmaBridge
 {
     /// <summary>
     /// Allows a method to be bound to a specific named Figma button
