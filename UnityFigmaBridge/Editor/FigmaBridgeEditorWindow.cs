@@ -11,7 +11,7 @@ namespace UnityFigmaBridge.Editor
     public sealed class FigmaBridgeEditorWindow : EditorWindow
     {
         // ─── Tabs ────────────────────────────────────────
-        private static readonly string[] Tabs = { "Import", "Settings", "Log" };
+        private static readonly string[] Tabs = { "Import", "Build", "Settings", "Log" };
         private int _tabIndex;
         private Vector2 _scrollPos;
 
@@ -59,13 +59,20 @@ namespace UnityFigmaBridge.Editor
         private UnityFigmaBridgeSettings _settings;
         private Vector2 _pageScrollPos;
 
+        // ─── Build tab state ─────────────────────────────
+        private List<BuildFrameEntry> _buildFrames;
+        private Vector2 _buildScrollPos;
+        private bool _buildCacheLoaded;
+        private string _buildCacheInfo;
+        private bool _isBuilding;
+
         // ─── Log state ───────────────────────────────────
         private readonly List<LogEntry> _logEntries = new();
         private Vector2 _logScrollPos;
 
         // ─── Lifecycle ───────────────────────────────────
 
-        [MenuItem("Figma Bridge/Open Window")]
+        [MenuItem("Window/Figma Bridge")]
         public static void Open()
         {
             var w = GetWindow<FigmaBridgeEditorWindow>("Figma Bridge");
@@ -87,17 +94,22 @@ namespace UnityFigmaBridge.Editor
             }
             UnityFigmaBridgeImporter.OnProgressChanged += HandleProgress;
             UnityFigmaBridgeImporter.OnImportComplete += HandleComplete;
+            UnityFigmaBridgeImporter.OnBuildComplete += HandleBuildComplete;
         }
 
         private void OnDisable()
         {
             EditorApplication.update -= CheckPendingSectionRequest;
+            EditorApplication.update -= CheckCacheRefreshRequest;
             _sectionRequest?.Dispose();
             _sectionRequest = null;
+            _cacheRefreshRequest?.Dispose();
+            _cacheRefreshRequest = null;
             _previewRequest?.Dispose();
             _previewRequest = null;
             UnityFigmaBridgeImporter.OnProgressChanged -= HandleProgress;
             UnityFigmaBridgeImporter.OnImportComplete -= HandleComplete;
+            UnityFigmaBridgeImporter.OnBuildComplete -= HandleBuildComplete;
         }
 
         // ─── Main Layout ─────────────────────────────────
@@ -118,8 +130,9 @@ namespace UnityFigmaBridge.Editor
             switch (_tabIndex)
             {
                 case 0: DrawImportTab(); break;
-                case 1: DrawSettingsTab(); break;
-                case 2: DrawLogTab(); break;
+                case 1: DrawBuildTab(); break;
+                case 2: DrawSettingsTab(); break;
+                case 3: DrawLogTab(); break;
             }
 
             GUILayout.Space(4);
@@ -424,6 +437,307 @@ namespace UnityFigmaBridge.Editor
                     SettingsService.OpenProjectSettings("Project/Unity Figma Bridge");
                 EditorGUILayout.EndHorizontal();
             });
+        }
+
+        // ─── Build Tab ───────────────────────────────────
+
+        private void DrawBuildTab()
+        {
+            _isBuilding = UnityFigmaBridgeImporter.IsBuilding;
+
+            // Cache status card
+            BeginCard("Document Cache");
+
+            var cacheExists = UnityFigmaBridge.Editor.Utils.FigmaDocumentCache.Exists;
+            if (cacheExists)
+            {
+                var lastMod = UnityFigmaBridge.Editor.Utils.FigmaDocumentCache.LastModified;
+                var timeStr = lastMod.HasValue ? lastMod.Value.ToString("yyyy-MM-dd HH:mm:ss") : "unknown";
+                DrawKeyValue("Status", "Cached", SuccessText);
+                DrawKeyValue("Updated", timeStr);
+            }
+            else
+            {
+                DrawKeyValue("Status", "No cache - run Import first", ErrorText);
+            }
+
+            GUILayout.Space(4);
+            EditorGUILayout.BeginHorizontal();
+            using (new EditorGUI.DisabledGroupScope(!cacheExists))
+            {
+                if (DrawSmallButton("Reload"))
+                    LoadBuildFrames();
+            }
+            using (new EditorGUI.DisabledGroupScope(_isImporting))
+            {
+                if (DrawSmallButton("Refresh from Figma"))
+                    RefreshCacheFromFigma();
+            }
+            EditorGUILayout.EndHorizontal();
+
+            EndCard();
+
+            if (!cacheExists)
+            {
+                GUILayout.Space(20);
+                var hint = new GUIStyle(EditorStyles.label)
+                {
+                    alignment = TextAnchor.MiddleCenter, wordWrap = true,
+                    fontSize = 11, normal = { textColor = MutedText },
+                };
+                GUILayout.Label("Import a document first to populate the cache.\nThen switch to Build tab to build individual frames.", hint);
+                return;
+            }
+
+            // Auto-load frames if not loaded yet
+            if (_buildFrames == null)
+                LoadBuildFrames();
+
+            if (_buildFrames == null || _buildFrames.Count == 0)
+            {
+                GUILayout.Space(20);
+                var hint = new GUIStyle(EditorStyles.label)
+                {
+                    alignment = TextAnchor.MiddleCenter, wordWrap = true,
+                    fontSize = 11, normal = { textColor = MutedText },
+                };
+                GUILayout.Label("No frames found.\nCheck section filter in Settings, or click Reload.", hint);
+                return;
+            }
+
+            // Frame list grouped by section
+            BeginCard("Frames");
+
+            var countText = $"{_buildFrames.Count} frame(s)";
+            DrawBadge(countText, Accent);
+            GUILayout.Space(6);
+
+            _buildScrollPos = EditorGUILayout.BeginScrollView(_buildScrollPos, GUILayout.MaxHeight(400));
+
+            const float rowH = 28;
+            var evenBg = Pro ? C(0.22f) : C(0.94f);
+            var oddBg = Pro ? C(0.20f) : C(0.92f);
+
+            string lastSection = null;
+            for (int i = 0; i < _buildFrames.Count; i++)
+            {
+                var entry = _buildFrames[i];
+
+                // Section header
+                var sectionLabel = entry.SectionName ?? "(No Section)";
+                if (sectionLabel != lastSection)
+                {
+                    lastSection = sectionLabel;
+                    if (i > 0) GUILayout.Space(6);
+
+                    var sectionRect = GUILayoutUtility.GetRect(0, 22, GUILayout.ExpandWidth(true));
+                    if (Event.current.type == EventType.Repaint)
+                    {
+                        EditorGUI.DrawRect(sectionRect, Pro ? C(0.17f) : C(0.86f));
+                        EditorGUI.DrawRect(new Rect(sectionRect.x, sectionRect.y, 3, sectionRect.height), Accent);
+                    }
+                    var hdrStyle = new GUIStyle(EditorStyles.miniLabel)
+                    {
+                        fontStyle = FontStyle.Bold, fontSize = 11,
+                        normal = { textColor = Accent },
+                        padding = new RectOffset(10, 0, 0, 0),
+                    };
+                    GUI.Label(sectionRect, sectionLabel, hdrStyle);
+                }
+
+                // Frame row
+                var rRect = GUILayoutUtility.GetRect(0, rowH, GUILayout.ExpandWidth(true));
+                if (Event.current.type == EventType.Repaint)
+                    EditorGUI.DrawRect(rRect, i % 2 == 0 ? evenBg : oddBg);
+
+                // Frame name
+                var nameStyle = new GUIStyle(EditorStyles.label)
+                {
+                    fontSize = 11,
+                    padding = new RectOffset(14, 0, 0, 0),
+                    normal = { textColor = Pro ? C(0.82f) : C(0.16f) },
+                };
+                var nameRect = new Rect(rRect.x, rRect.y, rRect.width - 70, rowH);
+                GUI.Label(nameRect, entry.Name, nameStyle);
+
+                // Existing badge
+                if (entry.ExistsOnDisk)
+                {
+                    var badgeRect = new Rect(rRect.xMax - 130, rRect.y + 6, 50, 16);
+                    if (Event.current.type == EventType.Repaint)
+                        EditorGUI.DrawRect(badgeRect, new UnityEngine.Color(MutedText.r, MutedText.g, MutedText.b, 0.15f));
+                    var bs = new GUIStyle(EditorStyles.miniLabel)
+                    {
+                        fontSize = 9, alignment = TextAnchor.MiddleCenter,
+                        normal = { textColor = MutedText },
+                    };
+                    GUI.Label(badgeRect, "EXISTS", bs);
+                }
+
+                // Build button (right-aligned)
+                var btnRect = new Rect(rRect.xMax - 62, rRect.y + 4, 56, rowH - 8);
+                using (new EditorGUI.DisabledGroupScope(_isBuilding || _isImporting))
+                {
+                    var prevBg = GUI.backgroundColor;
+                    GUI.backgroundColor = Accent;
+                    if (GUI.Button(btnRect, "Build"))
+                        BuildFrame(entry);
+                    GUI.backgroundColor = prevBg;
+                }
+            }
+
+            EditorGUILayout.EndScrollView();
+
+            if (_isBuilding)
+            {
+                GUILayout.Space(8);
+                DrawProgressBar(_progressFraction, _progressMessage);
+            }
+
+            EndCard();
+        }
+
+        private void LoadBuildFrames()
+        {
+            _buildFrames = new List<BuildFrameEntry>();
+            var figmaFile = UnityFigmaBridge.Editor.Utils.FigmaDocumentCache.Load();
+            if (figmaFile?.document?.children == null) return;
+
+            var sectionFilter = _settings != null ? _settings.SelectedSection : "";
+
+            foreach (var page in figmaFile.document.children)
+            {
+                if (page.children == null) continue;
+
+                foreach (var child in page.children)
+                {
+                    if (child.type == NodeType.SECTION)
+                    {
+                        if (!string.IsNullOrEmpty(sectionFilter) && child.name != sectionFilter)
+                            continue;
+
+                        if (child.children != null)
+                        {
+                            foreach (var frame in child.children)
+                            {
+                                if (frame.type == NodeType.FRAME)
+                                    AddBuildFrameEntry(frame, page.name, child.name);
+                            }
+                        }
+                    }
+                    else if (child.type == NodeType.FRAME)
+                    {
+                        if (string.IsNullOrEmpty(sectionFilter))
+                            AddBuildFrameEntry(child, page.name, null);
+                    }
+                }
+            }
+
+            AppendLog($"Build tab: loaded {_buildFrames.Count} frame(s) from cache");
+        }
+
+        private void AddBuildFrameEntry(Node frame, string pageName, string sectionName)
+        {
+            // Check if prefab exists on disk (context-aware path)
+            var safeName = UnityFigmaBridge.Editor.Utils.FigmaPaths.MakeValidFileName(frame.name.Trim());
+            string prefabPath;
+            if (!string.IsNullOrEmpty(sectionName))
+            {
+                var safeSection = UnityFigmaBridge.Editor.Utils.FigmaPaths.MakeValidFileName(sectionName);
+                prefabPath = $"{UnityFigmaBridge.Editor.Utils.FigmaPaths.FigmaSectionsFolder}/{safeSection}/{safeName}/{safeName}.prefab";
+            }
+            else
+            {
+                prefabPath = $"{UnityFigmaBridge.Editor.Utils.FigmaPaths.FigmaSectionsFolder}/{safeName}/{safeName}.prefab";
+            }
+
+            _buildFrames.Add(new BuildFrameEntry
+            {
+                NodeId = frame.id,
+                Name = frame.name,
+                PageName = pageName,
+                SectionName = sectionName ?? "(No Section)",
+                PrefabPath = prefabPath,
+                ExistsOnDisk = System.IO.File.Exists(prefabPath),
+            });
+        }
+
+        private async void BuildFrame(BuildFrameEntry entry)
+        {
+            AppendLog($"Building frame: {entry.Name}...");
+            await UnityFigmaBridgeImporter.BuildFrameAsync(entry.NodeId);
+            // Refresh exists-on-disk status
+            LoadBuildFrames();
+        }
+
+        private UnityEngine.Networking.UnityWebRequest _cacheRefreshRequest;
+
+        private void RefreshCacheFromFigma()
+        {
+            if (_cacheRefreshRequest != null && !_cacheRefreshRequest.isDone) return;
+
+            EnsureSettingsLoaded();
+            if (_settings == null || string.IsNullOrEmpty(_settings.FileId)) return;
+
+            var token = EditorPrefs.GetString(UnityFigmaBridgeImporter.FIGMA_PERSONAL_ACCESS_TOKEN_PREF_KEY, "");
+            if (string.IsNullOrEmpty(token)) { AppendLog("No token set.", true); return; }
+
+            AppendLog("Refreshing cache from Figma...");
+            var url = $"https://api.figma.com/v1/files/{_settings.FileId}?geometry=paths";
+            _cacheRefreshRequest = UnityEngine.Networking.UnityWebRequest.Get(url);
+            _cacheRefreshRequest.SetRequestHeader("X-Figma-Token", token);
+            _cacheRefreshRequest.SendWebRequest();
+            EditorApplication.update += CheckCacheRefreshRequest;
+            Repaint();
+        }
+
+        private void CheckCacheRefreshRequest()
+        {
+            if (_cacheRefreshRequest == null || !_cacheRefreshRequest.isDone) return;
+            EditorApplication.update -= CheckCacheRefreshRequest;
+
+            if (_cacheRefreshRequest.result != UnityEngine.Networking.UnityWebRequest.Result.Success)
+            {
+                AppendLog($"Refresh failed ({_cacheRefreshRequest.responseCode}): {_cacheRefreshRequest.error}", true);
+                _cacheRefreshRequest.Dispose();
+                _cacheRefreshRequest = null;
+                Repaint();
+                return;
+            }
+
+            try
+            {
+                var json = _cacheRefreshRequest.downloadHandler.text;
+                var figmaFile = Newtonsoft.Json.JsonConvert.DeserializeObject<FigmaApi.FigmaFile>(json,
+                    new Newtonsoft.Json.JsonSerializerSettings
+                    {
+                        MissingMemberHandling = Newtonsoft.Json.MissingMemberHandling.Ignore,
+                        NullValueHandling = Newtonsoft.Json.NullValueHandling.Ignore,
+                        Converters = { new Newtonsoft.Json.Converters.StringEnumConverter { AllowIntegerValues = true } },
+                        Error = (sender, args) => { args.ErrorContext.Handled = true; },
+                    });
+
+                UnityFigmaBridge.Editor.Utils.FigmaDocumentCache.Save(figmaFile);
+                LoadBuildFrames();
+                AppendLog("Cache refreshed successfully");
+            }
+            catch (Exception e)
+            {
+                AppendLog($"Parse error: {e.Message}", true);
+            }
+            finally
+            {
+                _cacheRefreshRequest.Dispose();
+                _cacheRefreshRequest = null;
+            }
+            Repaint();
+        }
+
+        private void HandleBuildComplete(bool success, string error)
+        {
+            _isBuilding = false;
+            AppendLog(success ? "Build completed successfully" : $"Build failed: {error}", !success);
+            Repaint();
         }
 
         // ─── Settings Tab ────────────────────────────────
@@ -743,7 +1057,7 @@ namespace UnityFigmaBridge.Editor
             if (figmaFile?.document?.children == null) return;
 
             var sectionFilter = _settings != null ? _settings.SelectedSection : "";
-            var outputRoot = UnityFigmaBridge.Editor.Utils.FigmaPaths.FigmaScreenPrefabFolder;
+            var outputRoot = UnityFigmaBridge.Editor.Utils.FigmaPaths.FigmaSectionsFolder;
 
             foreach (var page in figmaFile.document.children)
             {
@@ -1064,7 +1378,15 @@ namespace UnityFigmaBridge.Editor
         private async void BeginImport()
         {
             _logEntries.Clear();
-            AppendLog("Starting import...");
+
+            // Pass selected frame IDs to importer
+            UnityFigmaBridgeImporter.SelectedFrameIds = _previewFrames?
+                .Where(f => f.Selected)
+                .Select(f => f.NodeId)
+                .ToList() ?? new List<string>();
+
+            var count = UnityFigmaBridgeImporter.SelectedFrameIds.Count;
+            AppendLog($"Starting import ({count} frame(s) selected)...");
             await UnityFigmaBridgeImporter.StartSyncAsync();
         }
 
@@ -1270,6 +1592,16 @@ namespace UnityFigmaBridge.Editor
             GUILayout.Space(14);
             GUILayout.EndHorizontal();
         }
+    }
+
+    internal class BuildFrameEntry
+    {
+        public string NodeId;
+        public string Name;
+        public string PageName;
+        public string SectionName;
+        public string PrefabPath;
+        public bool ExistsOnDisk;
     }
 
     internal class FramePreviewEntry
