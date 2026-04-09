@@ -238,6 +238,9 @@ namespace Afterhours.FigmaBridge.Editor
             if (tokenChanged)
             {
                 var prevBg = GUI.backgroundColor;
+                GUI.backgroundColor = Color.red;
+                if (GUILayout.Button("Cancel", GUILayout.Width(56), GUILayout.Height(18)))
+                    _tokenInput = storedToken;
                 GUI.backgroundColor = SuccessText;
                 if (GUILayout.Button("Save", GUILayout.Width(52), GUILayout.Height(18)))
                 {
@@ -742,11 +745,11 @@ namespace Afterhours.FigmaBridge.Editor
             if (_serializedSettings == null || _serializedSettings.targetObject == null)
                 _serializedSettings = new SerializedObject(_settings);
 
-            BeginCard("Import Settings");
+            BeginCard("Settings");
             SettingsInspectorDrawer.DrawSettings(_settings, _serializedSettings);
             EndCard();
 
-            if (_settings.OnlyImportSelectedPages && _settings.PageDataList.Count > 0)
+            if (_settings.PageDataList.Count > 0)
             {
                 BeginCard("Page Selection");
                 var changed = SettingsInspectorDrawer.DrawPageList(
@@ -1379,8 +1382,8 @@ namespace Afterhours.FigmaBridge.Editor
 
         private void AppendLog(string message, bool isError = false)
         {
-            _logEntries.Add(new LogEntry(message, isError));
-            _logScrollPos = new Vector2(0, float.MaxValue);
+            _logEntries.Insert(0, new LogEntry(message, isError));
+            _logScrollPos = Vector2.zero;
         }
 
         private static string TruncateUrl(string url, int maxLen = 55)
