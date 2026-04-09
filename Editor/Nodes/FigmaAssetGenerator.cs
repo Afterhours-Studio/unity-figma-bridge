@@ -133,7 +133,7 @@ namespace Afterhours.FigmaBridge.Editor
             }
 
             // Normal node — apply transform (clean, no LayoutElement)
-            ApplyCleanTransform(rt, node, depth > 0);
+            ApplyCleanTransform(rt, node, parentNode, depth > 0);
 
             // Figma mask node
             if (node.isMask)
@@ -191,6 +191,7 @@ namespace Afterhours.FigmaBridge.Editor
                 var cg = go.AddComponent<CanvasGroup>();
                 cg.alpha = node.opacity;
             }
+
 
             // Convention-based components
             ApplyConventionTags(go, tagButton, tagRectMask);
@@ -260,7 +261,7 @@ namespace Afterhours.FigmaBridge.Editor
         /// <summary>
         /// Apply RectTransform position, size, rotation, mirror from Figma node. No LayoutElement.
         /// </summary>
-        private static void ApplyCleanTransform(RectTransform rt, Node node, bool centerPivot)
+        private static void ApplyCleanTransform(RectTransform rt, Node node, Node parentNode, bool centerPivot)
         {
             rt.anchorMin = rt.anchorMax = new Vector2(0, 1);
             rt.pivot = new Vector2(0, 1);
@@ -285,6 +286,10 @@ namespace Afterhours.FigmaBridge.Editor
                 rt.localScale = new Vector3(rt.localScale.x, -rt.localScale.y, rt.localScale.z);
 
             rt.sizeDelta = new Vector2(node.size.x, node.size.y);
+
+            // Apply Figma constraints → Unity anchors
+            if (node.constraints != null && parentNode != null)
+                NodeTransformManager.ApplyFigmaConstraints(rt, node, parentNode);
 
             if (node.type == NodeType.TEXT) centerPivot = false;
             if (centerPivot) NodeTransformManager.SetPivot(rt, new Vector2(0.5f, 0.5f));
@@ -365,6 +370,8 @@ namespace Afterhours.FigmaBridge.Editor
                 : Vector2.zero;
 
             rt.anchoredPosition = new Vector2(rb.x - parentPos.x, -(rb.y - parentPos.y));
+
+            if (node.constraints != null) NodeTransformManager.ApplyFigmaConstraints(rt, node, parentNode);
         }
 
         /// <summary>

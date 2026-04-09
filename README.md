@@ -13,7 +13,7 @@ https://github.com/Afterhours-Studio/unity-figma-bridge.git
 To lock a specific version:
 
 ```
-https://github.com/Afterhours-Studio/unity-figma-bridge.git#v1.0.1
+https://github.com/Afterhours-Studio/unity-figma-bridge.git#v1.0.2
 ```
 
 To always use the latest from main:
@@ -91,6 +91,9 @@ The **Build** tab lists every frame that has been synced at least once. Clicking
 | Text (no stroke) | TextMeshPro component |
 | Text (with stroke) | TextMeshPro + named outline material preset |
 | Auto Layout (H/V) | `HorizontalLayoutGroup` / `VerticalLayoutGroup` |
+| Auto Layout (Grid) | `GridLayoutGroup` with `FixedColumnCount` |
+| Auto Layout (Wrap) | `GridLayoutGroup` with `Flexible` constraint |
+| Constraints | RectTransform anchors (LEFT, RIGHT, CENTER, stretch, scale) |
 | Ellipse / Star | `FigmaImage` with shape mask |
 | `[Button]` tag in name | Unity `Button` component added |
 | `SafeArea` name | `SafeArea` component added |

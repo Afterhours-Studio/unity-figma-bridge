@@ -70,12 +70,41 @@ namespace Afterhours.FigmaBridge.Editor
             // Ignore if layout mode is NONE or layout disabled
             if (node.layoutMode == Node.LayoutMode.NONE || !figmaImportProcessData.Settings.EnableAutoLayout) return;
             
-            // Remove an existing layout group if it exists
+            // Remove existing layout groups before applying new one
             var existingLayoutGroup = targetLayoutObject.GetComponent<HorizontalOrVerticalLayoutGroup>();
             if (existingLayoutGroup!=null) UnityEngine.Object.DestroyImmediate(existingLayoutGroup);
+            var existingGridLayout = targetLayoutObject.GetComponent<GridLayoutGroup>();
+            if (existingGridLayout!=null) UnityEngine.Object.DestroyImmediate(existingGridLayout);
             
+            // --- Grid layout (Figma Grid auto-layout) ---
+            if (node.layoutMode == Node.LayoutMode.GRID)
+            {
+                var gridLayout = UnityUiUtils.GetOrAddComponent<GridLayoutGroup>(targetLayoutObject);
+
+                // Cell size from first child
+                var cellSize = new Vector2(100, 100);
+                if (node.children != null && node.children.Length > 0)
+                {
+                    var first = node.children[0];
+                    if (first.size != null)
+                        cellSize = new Vector2(first.size.x, first.size.y);
+                }
+                gridLayout.cellSize = cellSize;
+
+                gridLayout.spacing = new Vector2(node.gridColumnGap, node.gridRowGap);
+                gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+                gridLayout.constraintCount = Mathf.Max(1, node.gridColumnCount);
+                gridLayout.startCorner = GridLayoutGroup.Corner.UpperLeft;
+                gridLayout.startAxis = GridLayoutGroup.Axis.Horizontal;
+                gridLayout.childAlignment = MapAlignment(node.primaryAxisAlignItems, node.counterAxisAlignItems);
+                gridLayout.padding = new RectOffset(
+                    Mathf.RoundToInt(node.paddingLeft), Mathf.RoundToInt(node.paddingRight),
+                    Mathf.RoundToInt(node.paddingTop), Mathf.RoundToInt(node.paddingBottom));
+                return;
+            }
+
             HorizontalOrVerticalLayoutGroup layoutGroup = null;
-            
+
             switch (node.layoutMode)
             {
                 case Node.LayoutMode.VERTICAL:
@@ -114,12 +143,47 @@ namespace Afterhours.FigmaBridge.Editor
                                 _ => layoutGroup.childAlignment
                             };
                             break;
+                        case Node.PrimaryAxisAlignItems.SPACE_BETWEEN:
+                            layoutGroup.childAlignment = node.counterAxisAlignItems switch
+                            {
+                                Node.CounterAxisAlignItems.MIN => TextAnchor.UpperLeft,
+                                Node.CounterAxisAlignItems.CENTER => TextAnchor.MiddleLeft,
+                                Node.CounterAxisAlignItems.MAX => TextAnchor.LowerLeft,
+                                _ => layoutGroup.childAlignment
+                            };
+                            break;
                         default:
-                            throw new ArgumentOutOfRangeException();
+                            break;
                     }
 
                     break;
                 case Node.LayoutMode.HORIZONTAL:
+                    // --- Wrap (Horizontal + flex-wrap) → GridLayoutGroup ---
+                    if (node.layoutWrap == Node.LayoutWrap.WRAP)
+                    {
+                        var wrapGrid = UnityUiUtils.GetOrAddComponent<GridLayoutGroup>(targetLayoutObject);
+
+                        var wrapCellSize = new Vector2(100, 100);
+                        if (node.children != null && node.children.Length > 0)
+                        {
+                            var first = node.children[0];
+                            if (first.size != null)
+                                wrapCellSize = new Vector2(first.size.x, first.size.y);
+                        }
+                        wrapGrid.cellSize = wrapCellSize;
+
+                        var ySpacing = node.counterAxisSpacing >= 0 ? node.counterAxisSpacing : node.itemSpacing;
+                        wrapGrid.spacing = new Vector2(node.itemSpacing, ySpacing);
+                        wrapGrid.constraint = GridLayoutGroup.Constraint.Flexible;
+                        wrapGrid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+                        wrapGrid.startAxis = GridLayoutGroup.Axis.Horizontal;
+                        wrapGrid.childAlignment = MapAlignment(node.primaryAxisAlignItems, node.counterAxisAlignItems);
+                        wrapGrid.padding = new RectOffset(
+                            Mathf.RoundToInt(node.paddingLeft), Mathf.RoundToInt(node.paddingRight),
+                            Mathf.RoundToInt(node.paddingTop), Mathf.RoundToInt(node.paddingBottom));
+                        return;
+                    }
+
                     layoutGroup= UnityUiUtils.GetOrAddComponent<HorizontalLayoutGroup>(targetLayoutObject);
                     layoutGroup.childForceExpandWidth= layoutGroup.childForceExpandHeight = false;
                     // Setup alignment according to Figma layout. Primary is Horizontal
@@ -149,7 +213,15 @@ namespace Afterhours.FigmaBridge.Editor
                             Node.CounterAxisAlignItems.MAX => TextAnchor.LowerRight,
                             _ => layoutGroup.childAlignment
                         },
-                        _ => throw new ArgumentOutOfRangeException()
+                        // SPACE_BETWEEN: distribute evenly, default to left alignment
+                        Node.PrimaryAxisAlignItems.SPACE_BETWEEN => node.counterAxisAlignItems switch
+                        {
+                            Node.CounterAxisAlignItems.MIN => TextAnchor.UpperLeft,
+                            Node.CounterAxisAlignItems.CENTER => TextAnchor.MiddleLeft,
+                            Node.CounterAxisAlignItems.MAX => TextAnchor.LowerLeft,
+                            _ => layoutGroup.childAlignment
+                        },
+                        _ => layoutGroup.childAlignment
                     };
                     break;
             }
@@ -162,6 +234,35 @@ namespace Afterhours.FigmaBridge.Editor
             layoutGroup.padding = new RectOffset(Mathf.RoundToInt(node.paddingLeft), Mathf.RoundToInt(node.paddingRight),
                 Mathf.RoundToInt(node.paddingTop), Mathf.RoundToInt(node.paddingBottom));
             layoutGroup.spacing = node.itemSpacing;
+        }
+
+        private static TextAnchor MapAlignment(Node.PrimaryAxisAlignItems primary, Node.CounterAxisAlignItems counter)
+        {
+            return primary switch
+            {
+                Node.PrimaryAxisAlignItems.MIN => counter switch
+                {
+                    Node.CounterAxisAlignItems.MIN => TextAnchor.UpperLeft,
+                    Node.CounterAxisAlignItems.CENTER => TextAnchor.MiddleLeft,
+                    Node.CounterAxisAlignItems.MAX => TextAnchor.LowerLeft,
+                    _ => TextAnchor.UpperLeft
+                },
+                Node.PrimaryAxisAlignItems.CENTER => counter switch
+                {
+                    Node.CounterAxisAlignItems.MIN => TextAnchor.UpperCenter,
+                    Node.CounterAxisAlignItems.CENTER => TextAnchor.MiddleCenter,
+                    Node.CounterAxisAlignItems.MAX => TextAnchor.LowerCenter,
+                    _ => TextAnchor.UpperCenter
+                },
+                Node.PrimaryAxisAlignItems.MAX => counter switch
+                {
+                    Node.CounterAxisAlignItems.MIN => TextAnchor.UpperRight,
+                    Node.CounterAxisAlignItems.CENTER => TextAnchor.MiddleRight,
+                    Node.CounterAxisAlignItems.MAX => TextAnchor.LowerRight,
+                    _ => TextAnchor.UpperRight
+                },
+                _ => TextAnchor.UpperLeft
+            };
         }
     }
 }

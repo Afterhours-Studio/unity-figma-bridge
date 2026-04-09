@@ -374,7 +374,35 @@ namespace Afterhours.FigmaBridge.Editor
         /// The distance between children of the frame. This property is only applicable for auto-layout frames.
         /// </summary>
         public float itemSpacing = 0;
-        
+
+        // --- Wrap (Horizontal + Wrap) ---
+
+        public enum LayoutWrap { NO_WRAP, WRAP }
+
+        /// <summary>
+        /// Whether this horizontal auto-layout frame wraps children to the next line.
+        /// </summary>
+        public LayoutWrap layoutWrap = LayoutWrap.NO_WRAP;
+
+        /// <summary>
+        /// Distance between wrapped rows (counter-axis). Negative means use itemSpacing.
+        /// </summary>
+        public float counterAxisSpacing = -1;
+
+        // --- Grid auto-layout (layoutMode == GRID) ---
+
+        /// <summary>Number of columns in the grid.</summary>
+        public int gridColumnCount;
+
+        /// <summary>Number of rows in the grid.</summary>
+        public int gridRowCount;
+
+        /// <summary>Horizontal gap between grid cells.</summary>
+        public float gridColumnGap;
+
+        /// <summary>Vertical gap between grid cells.</summary>
+        public float gridRowGap;
+
         /// <summary>
         /// An array of layout grids attached to this node (see layout grids section for more details).
         /// GROUP nodes do not have this attribute

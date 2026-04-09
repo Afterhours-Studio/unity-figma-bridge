@@ -68,10 +68,11 @@ namespace Afterhours.FigmaBridge.Editor
                     }
 
                     break;
+                case Effect.EffectType.BACKGROUND_BLUR:
+                    // Not supported in UGUI (requires GrabPass or URP custom render pass)
+                    break;
                 case Effect.EffectType.INNER_SHADOW:
                 case Effect.EffectType.LAYER_BLUR:
-                case Effect.EffectType.BACKGROUND_BLUR:
-                    // Unsupported
                     break;
             }
         }

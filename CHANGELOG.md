@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.0.2] - 2026-04-09
+
+### Added
+- **Grid auto-layout** — Figma `layoutMode: GRID` maps to `GridLayoutGroup` with `FixedColumnCount`, cell size from first child, and correct gap/padding.
+- **Wrap auto-layout** — Figma horizontal frames with `layoutWrap: WRAP` map to `GridLayoutGroup` with `Flexible` constraint (auto-wrap based on container width).
+- **Constraint support in clean build path** — Figma constraints (LEFT, RIGHT, CENTER, LEFT_RIGHT, SCALE) now applied to RectTransform anchors for all nodes, including server-rendered images.
+- **SPACE_BETWEEN alignment** — vertical and horizontal auto-layout frames with `SPACE_BETWEEN` no longer crash; alignment maps to correct `TextAnchor`.
+- **Log newest-first** — log tab now shows newest entries at the top.
+- **Token cancel button** — cancel button during token input.
+- **Settings card rename** — settings tab UI cleanup.
+- **Import/Build tab split** — settings reorganized into separate Import and Build sections.
+- **SmartNaming** — `FigmaNodeNaming` formats GameObject names to clean snake_case/PascalCase.
+
+### Fixed
+- Constraints were lost on nodes with server-rendered images (early return bypassed `ApplyFigmaConstraints`).
+- GROUP parent nodes with null `size` field caused wrong anchor/position calculations — now falls back to `absoluteBoundingBox`.
+- SCALE constraint produced messy fractional anchors — now treated as stretch (same as LEFT_RIGHT / TOP_BOTTOM).
+
+### Removed
+- `OnlyImportSelectedPages` setting (replaced by page selection in Import tab).
+
 ## [1.0.1] - 2026-04-09
 
 ### Added

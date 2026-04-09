@@ -75,17 +75,18 @@ namespace Afterhours.FigmaBridge.Editor
         /// <param name="targetRectTransform"></param>
         /// <param name="figmaNode"></param>
         /// <param name="figmaParentNode"></param>
-        private static void ApplyFigmaConstraints(RectTransform targetRectTransform, Node figmaNode,Node figmaParentNode)
+        internal static void ApplyFigmaConstraints(RectTransform targetRectTransform, Node figmaNode, Node figmaParentNode)
         {
-             // Setup anchor positions 
+            var parentNodeSize = figmaParentNode.size != null
+                ? figmaParentNode.size
+                : figmaParentNode.absoluteBoundingBox != null
+                    ? new Vector { x = figmaParentNode.absoluteBoundingBox.width, y = figmaParentNode.absoluteBoundingBox.height }
+                    : new Vector { x = 0, y = 0 };
+
+            // Set both anchors at once to avoid Unity auto-adjusting position between axis changes
             (targetRectTransform.anchorMin, targetRectTransform.anchorMax) = AnchorPositionsForFigmaConstraints(figmaNode.constraints);
-            
-            // We'll need to use the size of the parent node to determine anchor position
-            var parentNodeSize = figmaParentNode.size != null ? figmaParentNode.size : new Vector { x = 0, y = 0 };
-    
-            // TODO - Implement SCALE constraint
-            
-            // Modify anchor position according to constraint
+
+            // Adjust anchored position for non-left/top anchors
             var anchoredPosition = targetRectTransform.anchoredPosition;
 
             anchoredPosition.x += figmaNode.constraints.horizontal switch
@@ -101,15 +102,16 @@ namespace Afterhours.FigmaBridge.Editor
                 LayoutConstraint.VerticalLayoutConstraint.BOTTOM => parentNodeSize.y,
                 _ => 0
             };
-            
+
             targetRectTransform.anchoredPosition = anchoredPosition;
 
+            // Stretch: LEFT_RIGHT / TOP_BOTTOM
             switch (figmaNode.constraints.horizontal)
             {
-                case LayoutConstraint.HorizontalLayoutConstraint.LEFT_RIGHT: 
+                case LayoutConstraint.HorizontalLayoutConstraint.LEFT_RIGHT:
                 case LayoutConstraint.HorizontalLayoutConstraint.SCALE:
-                    var sizeDelta = targetRectTransform.sizeDelta;
-                    targetRectTransform.sizeDelta = new Vector2(sizeDelta.x-parentNodeSize.x, sizeDelta.y);
+                    var sdH = targetRectTransform.sizeDelta;
+                    targetRectTransform.sizeDelta = new Vector2(sdH.x - parentNodeSize.x, sdH.y);
                     break;
             }
 
@@ -117,11 +119,10 @@ namespace Afterhours.FigmaBridge.Editor
             {
                 case LayoutConstraint.VerticalLayoutConstraint.TOP_BOTTOM:
                 case LayoutConstraint.VerticalLayoutConstraint.SCALE:
-                    var sizeDelta = targetRectTransform.sizeDelta;
-                    targetRectTransform.sizeDelta = new Vector2(sizeDelta.x, sizeDelta.y - parentNodeSize.y);
+                    var sdV = targetRectTransform.sizeDelta;
+                    targetRectTransform.sizeDelta = new Vector2(sdV.x, sdV.y - parentNodeSize.y);
                     break;
             }
-            
         }
 
         /// <summary>
@@ -186,7 +187,7 @@ namespace Afterhours.FigmaBridge.Editor
         /// </summary>
         /// <param name="constraint"></param>
         /// <returns></returns>
-        private static (Vector2, Vector2) AnchorPositionsForFigmaConstraints(LayoutConstraint constraint)
+        internal static (Vector2, Vector2) AnchorPositionsForFigmaConstraints(LayoutConstraint constraint)
         {
             var anchorsX = constraint.horizontal switch
             {
