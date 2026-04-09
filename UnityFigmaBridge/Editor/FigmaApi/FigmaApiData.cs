@@ -254,6 +254,12 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         public Rectangle absoluteBoundingBox;
 
         /// <summary>
+        /// The actual bounds of the node including effects (shadows, blur, outside strokes).
+        /// Null if the node is invisible or has zero-size render bounds.
+        /// </summary>
+        public Rectangle absoluteRenderBounds;
+
+        /// <summary>
         /// Width and height of element. This is different from the width and height of the bounding box in that the
         /// absolute bounding box represents the element after scaling and rotation. Only present if geometry=paths
         /// is passed

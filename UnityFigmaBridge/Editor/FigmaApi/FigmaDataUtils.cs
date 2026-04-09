@@ -225,43 +225,58 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         {
             public string SectionName;
             public string FrameName;
+            public string NodeName;
         }
 
         public static Dictionary<string, ImageFillContext> GetAllImageFillIdsFromFile(FigmaFile file,
-            List<string> downloadPageIdList, string sectionFilter = "", bool exportOnly = false)
+            List<string> downloadPageIdList, string sectionFilter = "", bool exportOnly = false,
+            List<string> selectedFrameIds = null)
         {
             var imageFillMap = new Dictionary<string, ImageFillContext>();
             foreach (var page in file.document.children)
             {
                 var includedPage = downloadPageIdList.Contains(page.id);
                 GetAllImageFillIdsForNode(page, imageFillMap, 0, includedPage, false,
-                    sectionFilter, exportOnly, "", "");
+                    sectionFilter, exportOnly, "", "", selectedFrameIds);
             }
             return imageFillMap;
         }
 
         private static void GetAllImageFillIdsForNode(Node node, Dictionary<string, ImageFillContext> imageFillMap,
             int recursiveDepth, bool includedPage, bool withinComponentDefinition,
-            string sectionFilter, bool exportOnly, string currentSection, string currentFrame)
+            string sectionFilter, bool exportOnly, string currentSection, string currentFrame,
+            List<string> selectedFrameIds)
         {
             // Section filter
-            if (recursiveDepth == 1 && node.type == NodeType.SECTION
-                && !string.IsNullOrEmpty(sectionFilter) && node.name != sectionFilter)
-                return;
+            if (recursiveDepth == 1 && !string.IsNullOrEmpty(sectionFilter))
+            {
+                if (node.type != NodeType.SECTION || node.name != sectionFilter)
+                    return;
+            }
 
             // Track section/frame context
             if (node.type == NodeType.SECTION) currentSection = node.name;
             if (IsScreenNode(node, null) || (recursiveDepth == 2 && node.type == NodeType.FRAME))
                 currentFrame = node.name;
 
-            // Export-only filter
+            // Frame filter: if specific frames selected, skip non-matching screen frames
+            if (selectedFrameIds != null && selectedFrameIds.Count > 0
+                && (IsScreenNode(node, null) || (recursiveDepth == 2 && node.type == NodeType.FRAME)))
+            {
+                if (!selectedFrameIds.Contains(node.id)) return;
+            }
+
+            // Export-only: skip non-export nodes but ALWAYS recurse into containers
             if (exportOnly && recursiveDepth > 1
                 && node.type != NodeType.CANVAS && node.type != NodeType.SECTION
                 && node.type != NodeType.FRAME && node.type != NodeType.COMPONENT
-                && (node.exportSettings == null || node.exportSettings.Length == 0))
-                return;
+                && node.type != NodeType.INSTANCE && node.type != NodeType.GROUP)
+            {
+                if (node.exportSettings == null || node.exportSettings.Length == 0)
+                    return;
+            }
 
-            // Ignore random images at root level
+            // Collect image fills
             var ignoreNodeFill = recursiveDepth <= 1 && node.type != NodeType.FRAME && node.type != NodeType.COMPONENT;
             if (!includedPage && !withinComponentDefinition) ignoreNodeFill = true;
             if (node.fills != null && !ignoreNodeFill)
@@ -274,18 +289,20 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                         imageFillMap[fill.imageRef] = new ImageFillContext
                         {
                             SectionName = currentSection,
-                            FrameName = currentFrame
+                            FrameName = currentFrame,
+                            NodeName = node.name,
                         };
                 }
             }
 
-            if (node.type == NodeType.COMPONENT) withinComponentDefinition = true;
+            if (node.type == NodeType.COMPONENT || node.type == NodeType.INSTANCE)
+                withinComponentDefinition = true;
 
             if (node.children == null) return;
             foreach (var childNode in node.children)
                 GetAllImageFillIdsForNode(childNode, imageFillMap, recursiveDepth + 1,
                     includedPage, withinComponentDefinition, sectionFilter, exportOnly,
-                    currentSection, currentFrame);
+                    currentSection, currentFrame, selectedFrameIds);
         }
         
         /// <summary>
@@ -331,14 +348,16 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// <returns>List of figmaNode IDs to replace</returns>
         public static List<ServerRenderNodeData> FindAllServerRenderNodesInFile(FigmaFile file,
             List<string> missingComponentIds, List<string> downloadPageIdList,
-            string sectionFilter = "", bool exportOnly = false)
+            string sectionFilter = "", bool exportOnly = false, int syncDepth = 0,
+            List<string> selectedFrameIds = null)
         {
             var renderSubstitutionNodeList = new List<ServerRenderNodeData>();
             foreach (var page in file.document.children)
             {
                 var isSelectedPage = downloadPageIdList.Contains(page.id);
                 AddRenderSubstitutionsForFigmaNode(page, renderSubstitutionNodeList, 0,
-                    missingComponentIds, isSelectedPage, false, sectionFilter, exportOnly, "", "");
+                    missingComponentIds, isSelectedPage, false, sectionFilter, exportOnly, "", "",
+                    syncDepth, selectedFrameIds);
             }
 
             return renderSubstitutionNodeList;
@@ -347,52 +366,46 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         private static void AddRenderSubstitutionsForFigmaNode(Node figmaNode,
             List<ServerRenderNodeData> substitutionNodeList, int recursiveNodeDepth,
             List<string> missingComponentIds, bool isSelectedPage, bool withinComponentDefinition,
-            string sectionFilter, bool exportOnly, string currentSection, string currentFrame)
+            string sectionFilter, bool exportOnly, string currentSection, string currentFrame,
+            int syncDepth, List<string> selectedFrameIds)
         {
-            // Skip invisible nodes
             if (!figmaNode.visible) return;
 
-            // Skip instances that have component definitions
-            if (figmaNode.type == NodeType.INSTANCE && !missingComponentIds.Contains(figmaNode.componentId))
-                return;
+            var hasExport = figmaNode.exportSettings != null && figmaNode.exportSettings.Length > 0;
 
-            // Section filter: skip non-matching sections
-            if (recursiveNodeDepth == 1 && figmaNode.type == NodeType.SECTION
-                && !string.IsNullOrEmpty(sectionFilter) && figmaNode.name != sectionFilter)
-                return;
+            // Section filter
+            if (recursiveNodeDepth == 1 && !string.IsNullOrEmpty(sectionFilter))
+            {
+                if (figmaNode.type != NodeType.SECTION || figmaNode.name != sectionFilter)
+                    return;
+            }
 
             // Track section/frame context
             if (figmaNode.type == NodeType.SECTION) currentSection = figmaNode.name;
-            if (recursiveNodeDepth >= 1 && figmaNode.type == NodeType.FRAME
-                && IsScreenNode(figmaNode, null) || (recursiveNodeDepth == 2 && figmaNode.type == NodeType.FRAME))
-                currentFrame = figmaNode.name;
 
-            // Export-only: only process nodes with export settings (still traverse structural nodes)
-            if (exportOnly && recursiveNodeDepth > 1
-                && figmaNode.type != NodeType.CANVAS && figmaNode.type != NodeType.SECTION
-                && figmaNode.type != NodeType.FRAME && figmaNode.type != NodeType.COMPONENT)
+            var isScreenFrame = IsScreenNode(figmaNode, null)
+                || (recursiveNodeDepth == 2 && figmaNode.type == NodeType.FRAME);
+            if (isScreenFrame) currentFrame = figmaNode.name;
+
+            // Frame filter: skip non-selected screen frames
+            if (selectedFrameIds != null && selectedFrameIds.Count > 0 && isScreenFrame)
             {
-                // Only include if marked for export
-                if (figmaNode.exportSettings != null && figmaNode.exportSettings.Length > 0)
-                {
-                    if (isSelectedPage || withinComponentDefinition)
-                    {
-                        substitutionNodeList.Add(new ServerRenderNodeData
-                        {
-                            RenderType = ServerRenderType.Export,
-                            SourceNode = figmaNode,
-                            SectionName = currentSection,
-                            FrameName = currentFrame,
-                        });
-                    }
-                }
-                return;
+                if (!selectedFrameIds.Contains(figmaNode.id)) return;
             }
 
-            // Top level frames with export settings
-            if ((isSelectedPage || withinComponentDefinition) && recursiveNodeDepth == 1
-                && figmaNode.exportSettings != null && figmaNode.exportSettings.Length > 0)
+            // Calculate depth relative to frame (for syncDepth limit)
+            // Structural nodes (page, section, screen frame) don't count
+            var canAdd = isSelectedPage || withinComponentDefinition;
+
+            // Debug: log every node with export settings to trace why some are missed
+            if (hasExport)
+                Debug.Log($"[ServerRender] CHECK: '{figmaNode.name}' ({figmaNode.id}) type={figmaNode.type} depth={recursiveNodeDepth} canAdd={canAdd} isSelectedPage={isSelectedPage} withinComponent={withinComponentDefinition} exportOnly={exportOnly}");
+
+            // Node with export settings → download as server-rendered image, don't recurse deeper
+            // Skip screen frames — they are layout containers, not flat images
+            if (canAdd && hasExport && recursiveNodeDepth > 0 && !isScreenFrame)
             {
+                Debug.Log($"[ServerRender] EXPORT: '{figmaNode.name}' ({figmaNode.id}) type={figmaNode.type} depth={recursiveNodeDepth} section={currentSection} frame={currentFrame}");
                 substitutionNodeList.Add(new ServerRenderNodeData
                 {
                     RenderType = ServerRenderType.Export,
@@ -403,8 +416,8 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 return;
             }
 
-            // Standard server-render substitution
-            if ((isSelectedPage || withinComponentDefinition) && GetNodeSubstitutionStatus(figmaNode, recursiveNodeDepth))
+            // Standard server-render substitution (vector-only containers, not screen frames)
+            if (!exportOnly && !isScreenFrame && canAdd && GetNodeSubstitutionStatus(figmaNode, recursiveNodeDepth))
             {
                 substitutionNodeList.Add(new ServerRenderNodeData
                 {
@@ -416,14 +429,15 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 return;
             }
 
+            // Recurse into children
             if (figmaNode.children == null) return;
-
-            if (figmaNode.type == NodeType.COMPONENT) withinComponentDefinition = true;
+            if (figmaNode.type == NodeType.COMPONENT || figmaNode.type == NodeType.INSTANCE)
+                withinComponentDefinition = true;
 
             foreach (var childNode in figmaNode.children)
                 AddRenderSubstitutionsForFigmaNode(childNode, substitutionNodeList, recursiveNodeDepth + 1,
                     missingComponentIds, isSelectedPage, withinComponentDefinition, sectionFilter, exportOnly,
-                    currentSection, currentFrame);
+                    currentSection, currentFrame, syncDepth, selectedFrameIds);
         }
 
         /// <summary>
@@ -449,15 +463,22 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                     return true;
             }
 
-            // The pattern we identify for server side vector rendering is:
-            // * At least one sub nodes of type vector
-            // * Only containing sub nodes of type VECTOR, FRAME, GROUP, COMPONENT, INSTANCE
-            var validNodeTypesForVectorRender = new NodeType[] { NodeType.VECTOR, NodeType.GROUP, NodeType.FRAME, NodeType.COMPONENT, NodeType.INSTANCE };
-            var nodeTypeCount = new int[validNodeTypesForVectorRender.Length];
-            var onlyValidNodeTypesFound =
-                GetNodeChildrenExclusivelyOfTypes(node, validNodeTypesForVectorRender, nodeTypeCount);
-            
-            if (onlyValidNodeTypesFound && nodeTypeCount[0]>0) return true;
+            // Server-render nodes whose children are purely visual shapes (no TEXT).
+            // If all children are shapes/vectors/frames, render the whole thing as one image.
+            var validNodeTypesForRender = new NodeType[]
+            {
+                NodeType.VECTOR, NodeType.BOOLEAN_OPERATION,
+                NodeType.RECTANGLE, NodeType.ELLIPSE, NodeType.STAR, NodeType.LINE, NodeType.REGULAR_POLYGON,
+                NodeType.GROUP, NodeType.FRAME, NodeType.COMPONENT, NodeType.INSTANCE,
+            };
+            var nodeTypeCount = new int[validNodeTypesForRender.Length];
+            var onlyValidTypesFound =
+                GetNodeChildrenExclusivelyOfTypes(node, validNodeTypesForRender, nodeTypeCount);
+
+            // At least one shape child, no TEXT children
+            var shapeCount = nodeTypeCount[0] + nodeTypeCount[1] + nodeTypeCount[2] +
+                             nodeTypeCount[3] + nodeTypeCount[4] + nodeTypeCount[5] + nodeTypeCount[6];
+            if (onlyValidTypesFound && shapeCount > 0) return true;
             
             return false;
         }

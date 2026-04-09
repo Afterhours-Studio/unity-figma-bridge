@@ -12,7 +12,6 @@ using UnityEngine.UI;
 using UnityFigmaBridge.Editor.FigmaApi;
 using UnityFigmaBridge.Editor.Fonts;
 using UnityFigmaBridge.Editor.Nodes;
-using UnityFigmaBridge.Editor.PrototypeFlow;
 using UnityFigmaBridge.Editor.Settings;
 using UnityFigmaBridge.Editor.Utils;
 using UnityFigmaBridge.Runtime.UI;
@@ -85,9 +84,8 @@ namespace UnityFigmaBridge.Editor
         /// <summary>
         /// The flowScreen controller to mange prototype functionality
         /// </summary>
-        private static PrototypeFlowController s_PrototypeFlowController;
 
-        [MenuItem("Figma Bridge/Sync Document")]
+
         static void Sync()
         {
             _ = StartSyncAsync();
@@ -96,6 +94,12 @@ namespace UnityFigmaBridge.Editor
         /// <summary>
         /// Public entry point for triggering sync — callable by EditorWindow or menu item
         /// </summary>
+        /// <summary>
+        /// Selected frame node IDs — set by EditorWindow before calling StartSyncAsync.
+        /// If empty, all frames are imported.
+        /// </summary>
+        public static List<string> SelectedFrameIds { get; set; } = new();
+
         public static async Task StartSyncAsync()
         {
             if (IsImporting) return;
@@ -124,6 +128,10 @@ namespace UnityFigmaBridge.Editor
 
             var figmaFile = await DownloadFigmaDocument(s_UnityFigmaBridgeSettings.FileId);
             if (figmaFile == null) return;
+
+            // Cache document for Build tab (non-critical — don't break import if this fails)
+            try { FigmaDocumentCache.Save(figmaFile); }
+            catch (Exception e) { Debug.LogWarning($"[FigmaBridge] Cache save failed (non-critical): {e.Message}"); }
 
             var pageNodeList = FigmaDataUtils.GetPageNodes(figmaFile);
 
@@ -160,7 +168,7 @@ namespace UnityFigmaBridge.Editor
                 pageNodeList = pageNodeList.Where(p => enabledPageIdList.Contains(p.id)).ToList();
             }
 
-            await ImportDocument(s_UnityFigmaBridgeSettings.FileId, figmaFile, pageNodeList);
+            await ImportDocument(s_UnityFigmaBridgeSettings.FileId, figmaFile, pageNodeList, SelectedFrameIds);
         }
 
         /// <summary>
@@ -215,13 +223,6 @@ namespace UnityFigmaBridge.Editor
                 return false;
             }
             
-            // Check all requirements for run time if required
-            if (s_UnityFigmaBridgeSettings.BuildPrototypeFlow)
-            {
-                if (!CheckRunTimeRequirements())
-                    return false;
-            }
-            
             return true;
             
         }
@@ -263,14 +264,12 @@ namespace UnityFigmaBridge.Editor
             return true;
         }
 
-        [MenuItem("Figma Bridge/Select Settings File")]
         static void SelectSettings()
         {
             var bridgeSettings=UnityFigmaBridgeSettingsProvider.FindUnityBridgeSettingsAsset();
             Selection.activeObject = bridgeSettings;
         }
 
-        [MenuItem("Figma Bridge/Set Personal Access Token")]
         static void SetPersonalAccessToken()
         {
             RequestPersonalAccessToken();
@@ -349,6 +348,10 @@ namespace UnityFigmaBridge.Editor
 
         public static async Task<FigmaFile> DownloadFigmaDocument(string fileId)
         {
+            // Ensure token is loaded (may be called standalone from Build tab)
+            if (string.IsNullOrEmpty(s_PersonalAccessToken))
+                s_PersonalAccessToken = EditorPrefs.GetString(FIGMA_PERSONAL_ACCESS_TOKEN_PREF_KEY);
+
             // Download figma document
             ReportProgress("Downloading file", 0);
 
@@ -375,7 +378,7 @@ namespace UnityFigmaBridge.Editor
             return null;
         }
 
-        private static async Task ImportDocument(string fileId, FigmaFile figmaFile, List<Node> downloadPageNodeList)
+        private static async Task ImportDocument(string fileId, FigmaFile figmaFile, List<Node> downloadPageNodeList, List<string> selectedFrameIds)
         {
 
             // Build a list of page IDs to download
@@ -420,7 +423,8 @@ namespace UnityFigmaBridge.Editor
             var sectionFilter = s_UnityFigmaBridgeSettings.SelectedSection;
             var exportOnly = s_UnityFigmaBridgeSettings.OnlyImportExportNodes;
             var serverRenderNodes = FigmaDataUtils.FindAllServerRenderNodesInFile(
-                figmaFile, externalComponentList, downloadPageIdList, sectionFilter, exportOnly);
+                figmaFile, externalComponentList, downloadPageIdList, sectionFilter, exportOnly,
+                s_UnityFigmaBridgeSettings.SyncDepth, selectedFrameIds);
             
             // Request a render of these nodes on the server if required
             var serverRenderData=new List<FigmaServerRenderData>();
@@ -455,10 +459,10 @@ namespace UnityFigmaBridge.Editor
             // Make sure that existing downloaded assets are in the correct format
             FigmaApiUtils.CheckExistingAssetProperties();
             
-            // Track fills that are actually used. This is needed as FIGMA has a way of listing any bitmap used rather than active 
+            // Track fills that are actually used. This is needed as FIGMA has a way of listing any bitmap used rather than active
             var foundImageFills = FigmaDataUtils.GetAllImageFillIdsFromFile(
-                figmaFile, downloadPageIdList, sectionFilter, exportOnly);
-            
+                figmaFile, downloadPageIdList, sectionFilter, exportOnly, selectedFrameIds);
+
             // Get image fill data for the document (list of urls to download any bitmap data used)
             FigmaImageFillData activeFigmaImageFillData;
             ReportProgress("Downloading image fill data", 0);
@@ -487,107 +491,8 @@ namespace UnityFigmaBridge.Editor
             var figmaFontMapTask = FontManager.GenerateFontMapForDocument(figmaFile,
                 s_UnityFigmaBridgeSettings.EnableGoogleFontsDownloads);
             await figmaFontMapTask;
-            var fontMap = figmaFontMapTask.Result;
 
-
-            var componentData = new FigmaBridgeComponentData
-            { 
-                MissingComponentDefinitionsList = externalComponentList, 
-            };
-            
-            // Stores necessary importer data needed for document generator.
-            var figmaBridgeProcessData = new FigmaImportProcessData
-            {
-                Settings=s_UnityFigmaBridgeSettings,
-                SourceFile = figmaFile,
-                ComponentData = componentData,
-                ServerRenderNodes = serverRenderNodes,
-                PrototypeFlowController = s_PrototypeFlowController,
-                FontMap = fontMap,
-                PrototypeFlowStartPoints = FigmaDataUtils.GetAllPrototypeFlowStartingPoints(figmaFile),
-                SelectedPagesForImport = downloadPageNodeList,
-                NodeLookupDictionary = FigmaDataUtils.BuildNodeLookupDictionary(figmaFile)
-            };
-            
-            
-            // Find or create canvas in the active scene
-            s_SceneCanvas = Object.FindFirstObjectByType<Canvas>();
-            if (s_SceneCanvas == null)
-                s_SceneCanvas = CreateCanvas(true);
-
-            // Clear existing screens if using prototype flow
-            if (s_UnityFigmaBridgeSettings.BuildPrototypeFlow)
-            {
-                s_PrototypeFlowController = s_SceneCanvas.GetComponent<PrototypeFlowController>();
-                if (s_PrototypeFlowController == null)
-                    s_PrototypeFlowController = s_SceneCanvas.gameObject.AddComponent<PrototypeFlowController>();
-                figmaBridgeProcessData.PrototypeFlowController = s_PrototypeFlowController;
-
-                if (s_PrototypeFlowController)
-                    s_PrototypeFlowController.ClearFigmaScreens();
-            }
-
-            try
-            {
-                FigmaAssetGenerator.BuildFigmaFile(s_SceneCanvas, figmaBridgeProcessData);
-            }
-            catch (Exception e)
-            {
-                ReportError("Error generating Figma document. Check log for details", e.ToString());
-                EditorUtility.ClearProgressBar();
-                CleanUpPostGeneration();
-                return;
-            }
-           
-            
-            // Lastly, for prototype mode, instantiate the default flowScreen and set the scaler up appropriately
-            if (s_UnityFigmaBridgeSettings.BuildPrototypeFlow)
-            {
-                // Make sure all required default elements are present
-                var screenController = figmaBridgeProcessData.PrototypeFlowController;
-                
-                // Find default flow start position
-                screenController.PrototypeFlowInitialScreenId =  FigmaDataUtils.FindPrototypeFlowStartScreenId(figmaBridgeProcessData.SourceFile);;
-
-                if (screenController.ScreenParentTransform == null)
-                    screenController.ScreenParentTransform=UnityUiUtils.CreateRectTransform("ScreenParentTransform",
-                        figmaBridgeProcessData.PrototypeFlowController.transform as RectTransform);
-
-                if (screenController.TransitionEffect == null)
-                {
-                    // Instantiate and apply the default transition effect (loaded from package assets folder)
-                    var defaultTransitionAnimationEffect = AssetDatabase.LoadAssetAtPath("Packages/com.unityfigma.bridge/UnityFigmaBridge/Assets/TransitionFadeToBlack.prefab", typeof(GameObject)) as GameObject;
-                    var transitionObject = (GameObject) PrefabUtility.InstantiatePrefab(defaultTransitionAnimationEffect,
-                        screenController.transform.transform);
-                    screenController.TransitionEffect =
-                        transitionObject.GetComponent<TransitionEffect>();
-                    
-                    UnityUiUtils.SetTransformFullStretch(transitionObject.transform as RectTransform);
-                }
-
-                // Set start flowScreen on stage by default                
-                var defaultScreenData = figmaBridgeProcessData.PrototypeFlowController.StartFlowScreen;
-                if (defaultScreenData != null)
-                {
-                    var defaultScreenTransform = defaultScreenData.FigmaScreenPrefab.transform as RectTransform;
-                    if (defaultScreenTransform != null)
-                    {
-                        var defaultSize = defaultScreenTransform.sizeDelta;
-                        var canvasScaler = s_SceneCanvas.GetComponent<CanvasScaler>();
-                        if (canvasScaler == null) canvasScaler = s_SceneCanvas.gameObject.AddComponent<CanvasScaler>();
-                        canvasScaler.referenceResolution = defaultSize;
-                        // If we are a vertical template, drive by width
-                        canvasScaler.matchWidthOrHeight = (defaultSize.x>defaultSize.y) ? 1f : 0f; // Use height as driver
-                        canvasScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-                    }
-
-                    var screenInstance=(GameObject)PrefabUtility.InstantiatePrefab(defaultScreenData.FigmaScreenPrefab, figmaBridgeProcessData.PrototypeFlowController.ScreenParentTransform);
-                    figmaBridgeProcessData.PrototypeFlowController.SetCurrentScreen(screenInstance,defaultScreenData.FigmaNodeId,true);
-                }
-                // Write CS file with references to flowScreen name
-                // Screen name code generation removed
-            }
-            CleanUpPostGeneration();
+            // Import done — assets downloaded, fonts mapped. Build tab handles scene construction.
             ReportProgress("Import complete", 1f);
             EditorUtility.ClearProgressBar();
             AssetDatabase.Refresh();
@@ -599,6 +504,124 @@ namespace UnityFigmaBridge.Editor
         /// </summary>
         private static void CleanUpPostGeneration()
         {
+        }
+
+        // ─── Build Single Frame ─────────────────────────────
+
+        /// <summary>
+        /// Fired when a single-frame build completes: (success, errorMessage)
+        /// </summary>
+        public static event Action<bool, string> OnBuildComplete;
+
+        /// <summary>
+        /// Whether a build is currently running
+        /// </summary>
+        public static bool IsBuilding { get; private set; }
+
+        /// <summary>
+        /// Build a single frame from cached document data into the active scene.
+        /// Assets (images, fonts) must already exist on disk from a previous Import.
+        /// </summary>
+        public static async Task BuildFrameAsync(string frameNodeId)
+        {
+            if (IsBuilding || IsImporting) return;
+            IsBuilding = true;
+
+            try
+            {
+                await RunBuildFramePipeline(frameNodeId);
+                OnBuildComplete?.Invoke(true, null);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[FigmaBridge] Build failed: {e}");
+                OnBuildComplete?.Invoke(false, e.Message);
+            }
+            finally
+            {
+                IsBuilding = false;
+                EditorUtility.ClearProgressBar();
+            }
+        }
+
+        private static async Task RunBuildFramePipeline(string frameNodeId)
+        {
+            if (s_UnityFigmaBridgeSettings == null)
+                s_UnityFigmaBridgeSettings = UnityFigmaBridgeSettingsProvider.FindUnityBridgeSettingsAsset();
+            if (s_UnityFigmaBridgeSettings == null)
+                throw new InvalidOperationException("No settings file found.");
+
+            ReportProgress("Loading cached document...", 0f);
+
+            var figmaFile = FigmaDocumentCache.Load();
+            if (figmaFile == null)
+                throw new InvalidOperationException("No cached document. Run Import first.");
+
+            var (frameNode, parentNode) = FindFrameAndParent(figmaFile, frameNodeId);
+            if (frameNode == null)
+                throw new InvalidOperationException($"Frame node '{frameNodeId}' not found in cached document.");
+
+            ReportProgress("Mapping fonts...", 0.2f);
+            var fontMap = await FontManager.GenerateFontMapForDocument(
+                figmaFile, s_UnityFigmaBridgeSettings.EnableGoogleFontsDownloads);
+
+            // Minimal process data — only what clean build needs
+            var allPageIds = FigmaDataUtils.GetPageNodes(figmaFile).Select(p => p.id).ToList();
+            var externalComponents = FigmaDataUtils.FindMissingComponentDefinitions(figmaFile);
+            var serverRenderNodes = FigmaDataUtils.FindAllServerRenderNodesInFile(
+                figmaFile, externalComponents, allPageIds,
+                s_UnityFigmaBridgeSettings.SelectedSection,
+                s_UnityFigmaBridgeSettings.OnlyImportExportNodes,
+                s_UnityFigmaBridgeSettings.SyncDepth);
+
+            var processData = new FigmaImportProcessData
+            {
+                Settings = s_UnityFigmaBridgeSettings,
+                SourceFile = figmaFile,
+                ComponentData = new FigmaBridgeComponentData(),
+                ServerRenderNodes = serverRenderNodes,
+                FontMap = fontMap,
+            };
+
+            // Find or create canvas
+            s_SceneCanvas = Object.FindFirstObjectByType<Canvas>();
+            if (s_SceneCanvas == null)
+                s_SceneCanvas = CreateCanvas(true);
+
+            ReportProgress($"Building frame '{frameNode.name}'...", 0.4f);
+
+            FigmaAssetGenerator.BuildSingleFrame(
+                s_SceneCanvas, frameNode, parentNode, processData);
+
+            ReportProgress("Build complete", 1f);
+            EditorUtility.ClearProgressBar();
+            AssetDatabase.Refresh();
+        }
+
+        /// <summary>
+        /// Walks the cached document tree to find a frame node by ID and its parent.
+        /// </summary>
+        private static (Node frame, Node parent) FindFrameAndParent(FigmaFile file, string nodeId)
+        {
+            foreach (var page in file.document.children)
+            {
+                if (page.children == null) continue;
+                foreach (var child in page.children)
+                {
+                    if (child.id == nodeId)
+                        return (child, page);
+
+                    if (child.type == NodeType.SECTION && child.children != null)
+                    {
+                        foreach (var frame in child.children)
+                        {
+                            if (frame.id == nodeId)
+                                return (frame, child);
+                        }
+                    }
+                }
+            }
+            return (null, null);
         }
     }
 }

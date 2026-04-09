@@ -24,15 +24,13 @@ namespace UnityFigmaBridge.Editor.Utils
         }
 
         // ─── Structural folders ──────────────────────────
+        public static string FigmaSectionsFolder => $"{FigmaAssetsRootFolder}/Sections";
         public static string FigmaComponentPrefabFolder => $"{FigmaAssetsRootFolder}/Components";
         public static string FigmaFontMaterialPresetsFolder => $"{FigmaAssetsRootFolder}/FontMaterialPresets";
         public static string FigmaFontsFolder => $"{FigmaAssetsRootFolder}/Fonts";
 
         // Legacy flat folders — kept for backwards compat lookups
-        public static string FigmaPagePrefabFolder => $"{FigmaAssetsRootFolder}/Pages";
-        public static string FigmaScreenPrefabFolder => $"{FigmaAssetsRootFolder}/Screens";
         public static string FigmaImageFillFolder => $"{FigmaAssetsRootFolder}/ImageFills";
-        public static string FigmaServerRenderedImagesFolder => $"{FigmaAssetsRootFolder}/ServerRenderedImages";
 
         // ─── Current context (set during import) ─────────
         // These are set by the importer/generator as it traverses the tree
@@ -42,12 +40,12 @@ namespace UnityFigmaBridge.Editor.Utils
 
         /// <summary>
         /// Get the context-aware folder for the current section/frame.
-        /// Structure: Root/{Section}/{Frame}/
+        /// Structure: Root/Sections/{Section}/{Frame}/
         /// Falls back to Root/ if no context is set.
         /// </summary>
         private static string GetContextFolder()
         {
-            var root = FigmaAssetsRootFolder;
+            var root = FigmaSectionsFolder;
             if (!string.IsNullOrEmpty(CurrentSectionName))
             {
                 root = $"{root}/{MakeValidFileName(CurrentSectionName)}";
@@ -63,10 +61,10 @@ namespace UnityFigmaBridge.Editor.Utils
 
         // ─── Path helpers (context-aware) ────────────────
 
-        public static string GetPathForImageFill(string imageId)
+        public static string GetPathForImageFill(string imageId, string nodeName = null)
         {
-            var folder = $"{GetContextFolder()}/ImageFills";
-            return $"{folder}/{imageId}.png";
+            var fileName = !string.IsNullOrEmpty(nodeName) ? MakeValidFileName(nodeName.Trim()) : imageId;
+            return $"{GetContextFolder()}/{fileName}.png";
         }
 
         public static string GetPathForServerRenderedImage(string nodeId,
@@ -74,25 +72,15 @@ namespace UnityFigmaBridge.Editor.Utils
         {
             var matchingEntry = serverRenderNodeData.FirstOrDefault(node => node.SourceNode.id == nodeId);
             if (matchingEntry != null && matchingEntry.RenderType == ServerRenderType.Export)
-            {
-                var folder = GetContextFolder();
-                return $"{folder}/{MakeValidFileName(matchingEntry.SourceNode.name.Trim())}.png";
-            }
+                return $"{GetContextFolder()}/{MakeValidFileName(matchingEntry.SourceNode.name.Trim())}.png";
 
-            var renderFolder = $"{GetContextFolder()}/Renders";
             var safeNodeId = FigmaDataUtils.ReplaceUnsafeFileCharactersForNodeId(nodeId);
-            return $"{renderFolder}/{safeNodeId}.png";
+            return $"{GetContextFolder()}/{safeNodeId}.png";
         }
 
         public static string GetPathForScreenPrefab(Node node, int duplicateCount)
         {
-            var folder = $"{GetContextFolder()}/Screens";
-            return $"{folder}/{GetFileNameForNode(node, duplicateCount)}.prefab";
-        }
-
-        public static string GetPathForPagePrefab(Node node, int duplicateCount)
-        {
-            return $"{FigmaPagePrefabFolder}/{GetFileNameForNode(node, duplicateCount)}.prefab";
+            return $"{GetContextFolder()}/{GetFileNameForNode(node, duplicateCount)}.prefab";
         }
 
         public static string GetPathForComponentPrefab(string nodeName, int duplicateCount)
@@ -146,7 +134,7 @@ namespace UnityFigmaBridge.Editor.Utils
         {
             var requiredDirs = new[]
             {
-                FigmaPagePrefabFolder,
+                FigmaSectionsFolder,
                 FigmaComponentPrefabFolder,
                 FigmaFontMaterialPresetsFolder,
                 FigmaFontsFolder,

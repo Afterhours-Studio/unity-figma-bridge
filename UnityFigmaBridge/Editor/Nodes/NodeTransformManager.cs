@@ -172,7 +172,7 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// </summary>
         /// <param name="target"></param>
         /// <param name="pivot"></param>
-        private static void SetPivot(RectTransform target, Vector2 pivot)
+        public static void SetPivot(RectTransform target, Vector2 pivot)
         {
             if (!target) return;
             var offset=pivot - target.pivot;

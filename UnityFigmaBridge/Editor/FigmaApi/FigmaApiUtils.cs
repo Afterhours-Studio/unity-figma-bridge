@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -59,16 +59,32 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         private const int MAX_RETRY_COUNT = 3;
         private const int RETRY_DELAY_MS = 1000;
 
-        /// <summary>
-        /// Sends a web request with retry logic for transient failures
-        /// </summary>
         private static async Task<UnityWebRequest> SendRequestWithRetry(string url, string accessToken, int maxRetries = MAX_RETRY_COUNT)
         {
             for (var attempt = 0; attempt <= maxRetries; attempt++)
             {
                 var webRequest = UnityWebRequest.Get(url);
                 webRequest.SetRequestHeader("X-Figma-Token", accessToken);
-                await webRequest.SendWebRequest();
+                webRequest.timeout = 120;
+                var op = webRequest.SendWebRequest();
+
+                var startTime = EditorApplication.timeSinceStartup;
+
+                // Show download progress
+                while (!op.isDone)
+                {
+                    // Unity sometimes ignores timeout during 'Connecting' phase, use manual timeout to prevent infinite hangs
+                    if (EditorApplication.timeSinceStartup - startTime > 120.0)
+                    {
+                        webRequest.Abort();
+                        break;
+                    }
+
+                    var kb = webRequest.downloadedBytes / 1024;
+                    var text = kb > 0 ? $"Downloading... {kb}KB" : "Connecting...";
+                    UnityFigmaBridgeImporter.ReportProgressPublic(text, webRequest.downloadProgress);
+                    await Task.Delay(50);
+                }
 
                 if (webRequest.result == UnityWebRequest.Result.Success)
                     return webRequest;
@@ -78,17 +94,24 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                     // Don't retry client errors (4xx)
                     var responseCode = webRequest.responseCode;
                     if (responseCode >= 400 && responseCode < 500)
-                        throw new Exception($"Figma API error ({responseCode}): {webRequest.error} url - {url}");
+                    {
+                        var error = webRequest.error;
+                        webRequest.Dispose();
+                        throw new Exception($"Figma API error ({responseCode}): {error} url - {url}");
+                    }
                 }
 
                 if (attempt < maxRetries)
                 {
                     Debug.LogWarning($"Request failed (attempt {attempt + 1}/{maxRetries + 1}), retrying: {webRequest.error}");
+                    webRequest.Dispose();
                     await Task.Delay(RETRY_DELAY_MS * (attempt + 1));
                 }
                 else
                 {
-                    throw new Exception($"Request failed after {maxRetries + 1} attempts: {webRequest.error} url - {url}");
+                    var error = webRequest.error;
+                    webRequest.Dispose();
+                    throw new Exception($"Request failed after {maxRetries + 1} attempts: {error} url - {url}");
                 }
             }
 
@@ -185,7 +208,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
 
             FigmaFile figmaFile = null;
             // Download the Figma Document with retry logic
-            var webRequest = await SendRequestWithRetry(url, accessToken);
+            using var webRequest = await SendRequestWithRetry(url, accessToken);
 
             try
             {
@@ -236,7 +259,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             // Execute server-side rendering with retry logic
             var serverRenderUrl =
                 $"https://api.figma.com/v1/images/{fileId}?ids={serverNodeCsvList}&scale={serverRenderImageScale}&use_absolute_bounds=true";
-            var webRequest = await SendRequestWithRetry(serverRenderUrl, accessToken);
+            using var webRequest = await SendRequestWithRetry(serverRenderUrl, accessToken);
 
             try
             {
@@ -264,7 +287,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             // Download a list all the image fills container in the Figma document
             var imageFillUrl = $"https://api.figma.com/v1/files/{fileId}/images";
 
-            var webRequest = await SendRequestWithRetry(imageFillUrl, accessToken);
+            using var webRequest = await SendRequestWithRetry(imageFillUrl, accessToken);
             try
             {
                 imageFillData = JsonConvert.DeserializeObject<FigmaImageFillData>(webRequest.downloadHandler.text);
@@ -293,7 +316,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             var componentsUrl = $"https://api.figma.com/v1/files/{fileId}/nodes/?ids={externalComponentsJoined}";
             
             // Download the FIGMA Document with retry logic
-            var webRequest = await SendRequestWithRetry(componentsUrl, accessToken);
+            using var webRequest = await SendRequestWithRetry(componentsUrl, accessToken);
             try
             {
                 fileNodes = JsonConvert.DeserializeObject<FigmaFileNodes>(webRequest.downloadHandler.text);
@@ -324,14 +347,31 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         {
             var downloadList = new List<FigmaDownloadQueueItem>();
 
-            // Image fills — set context per image for folder structure
+            // Collect imageRefs that have a valid server render — those will be skipped from image fills
+            var serverRenderedImageRefs = new HashSet<string>();
+            foreach (var srd in serverRenderData)
+            {
+                foreach (var kvp in srd.images)
+                {
+                    if (string.IsNullOrEmpty(kvp.Value)) continue; // no valid URL
+                    var matchNode = serverRenderNodes.FirstOrDefault(n => n.SourceNode.id == kvp.Key);
+                    if (matchNode?.SourceNode.fills == null) continue;
+                    foreach (var fill in matchNode.SourceNode.fills)
+                    {
+                        if (fill != null && fill.type == Paint.PaintType.IMAGE && !string.IsNullOrEmpty(fill.imageRef))
+                            serverRenderedImageRefs.Add(fill.imageRef);
+                    }
+                }
+            }
+
+            // Image fills — use node name as filename, skip if already server-rendered
             foreach (var keyPair in imageFillData.meta.images)
             {
                 if (!foundImageFills.TryGetValue(keyPair.Key, out var ctx)) continue;
+                if (serverRenderedImageRefs.Contains(keyPair.Key)) continue;
 
-                // Set context so GetPathForImageFill uses the right folder
                 FigmaPaths.SetContext(ctx.SectionName, ctx.FrameName);
-                var filePath = FigmaPaths.GetPathForImageFill(keyPair.Key);
+                var filePath = FigmaPaths.GetPathForImageFill(keyPair.Key, ctx.NodeName);
 
                 if (!File.Exists(filePath))
                 {
@@ -356,7 +396,6 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                     }
                     else
                     {
-                        // Find the matching node to get section/frame context
                         var matchingNode = serverRenderNodes.FirstOrDefault(n => n.SourceNode.id == keyPair.Key);
                         if (matchingNode != null)
                             FigmaPaths.SetContext(matchingNode.SectionName, matchingNode.FrameName);
@@ -527,6 +566,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         /// </summary>
         private static void CheckImageFillTextureProperties()
         {
+            if (!Directory.Exists(FigmaPaths.FigmaImageFillFolder)) return;
             foreach (var filePath in Directory.GetFiles(FigmaPaths.FigmaImageFillFolder))
             {
                 var textureImporter = AssetImporter.GetAtPath(filePath) as TextureImporter;
