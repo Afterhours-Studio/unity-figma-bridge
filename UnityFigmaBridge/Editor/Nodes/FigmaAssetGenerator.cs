@@ -52,9 +52,6 @@ namespace UnityFigmaBridge.Editor.Nodes
                     Object.DestroyImmediate(createdPage.Item2);
             }
             
-            // Instantiate all components
-            ComponentManager.InstantiateAllComponentPrefabs(figmaImportProcessData);
-
             // Remove all temporary components that were created along the way
             ComponentManager.RemoveAllTemporaryNodeComponents(figmaImportProcessData);
             
@@ -155,10 +152,6 @@ namespace UnityFigmaBridge.Editor.Nodes
                 mask.showMaskGraphic = false;
             }
 
-            // Handle component instance placeholder
-            if (TryHandleComponentInstance(figmaNode, parentFigmaNode, nodeGameObject, figmaImportProcessData))
-                return nodeGameObject;
-
             if (figmaNode.type == NodeType.COMPONENT) withinComponentDefinition = true;
 
             // Handle server-rendered node substitution
@@ -176,19 +169,6 @@ namespace UnityFigmaBridge.Editor.Nodes
         }
 
         /// <summary>
-        /// Checks if node is a component instance with existing definition, and marks with placeholder if so
-        /// </summary>
-        /// <returns>True if handled as component instance placeholder</returns>
-        private static bool TryHandleComponentInstance(Node figmaNode, Node parentFigmaNode, GameObject nodeGameObject, FigmaImportProcessData figmaImportProcessData)
-        {
-            if (figmaNode.type != NodeType.INSTANCE) return false;
-            if (figmaImportProcessData.ComponentData.MissingComponentDefinitionsList.Contains(figmaNode.componentId)) return false;
-
-            nodeGameObject.AddComponent<FigmaComponentNodeMarker>().Initialise(figmaNode.id, parentFigmaNode.id, figmaNode.componentId);
-            return true;
-        }
-
-        /// <summary>
         /// Handles nodes that should be substituted with server-rendered bitmaps
         /// </summary>
         private static GameObject HandleServerRenderNode(Node figmaNode, Node parentFigmaNode, GameObject nodeGameObject, FigmaImportProcessData figmaImportProcessData)
@@ -197,9 +177,6 @@ namespace UnityFigmaBridge.Editor.Nodes
                 FigmaPaths.GetPathForServerRenderedImage(figmaNode.id, figmaImportProcessData.ServerRenderNodes));
 
             PrototypeFlowManager.ApplyPrototypeFunctionalityToNode(figmaNode, nodeGameObject, figmaImportProcessData);
-
-            if (figmaNode.type == NodeType.COMPONENT)
-                ComponentManager.GenerateComponentAssetFromNode(figmaNode, parentFigmaNode, nodeGameObject, figmaImportProcessData);
 
             return nodeGameObject;
         }
@@ -283,9 +260,6 @@ namespace UnityFigmaBridge.Editor.Nodes
                 case NodeType.FRAME:
                     if (includedPageObject && FigmaDataUtils.IsScreenNode(figmaNode, parentFigmaNode))
                         SaveFigmaScreenAsPrefab(figmaNode, parentFigmaNode, nodeRectTransform, figmaImportProcessData);
-                    break;
-                case NodeType.COMPONENT:
-                    ComponentManager.GenerateComponentAssetFromNode(figmaNode, parentFigmaNode, nodeGameObject, figmaImportProcessData);
                     break;
                 case NodeType.SECTION:
                     RegisterFigmaSection(figmaNode, figmaImportProcessData);
@@ -786,15 +760,14 @@ namespace UnityFigmaBridge.Editor.Nodes
         {
             if (node.style == null) return;
 
+            go.name += " (TMP)";
             var text = go.AddComponent<TMPro.TextMeshProUGUI>();
             text.text = node.characters;
             text.fontSize = node.style.fontSize;
             text.characterSpacing = -0.7f;
 
             // Color
-            text.color = node.fills != null && node.fills.Length > 0
-                ? FigmaDataUtils.GetUnityFillColor(node.fills[0])
-                : UnityEngine.Color.white;
+            text.color = FigmaNodeManager.ResolveTextColor(node);
 
             // Font
             var fontMapping = processData.FontMap.GetFontMapping(

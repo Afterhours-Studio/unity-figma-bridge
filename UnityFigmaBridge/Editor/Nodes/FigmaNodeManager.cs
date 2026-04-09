@@ -4,6 +4,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityFigmaBridge.Editor.FigmaApi;
+using UnityFigmaBridge.Editor.Settings;
 using UnityFigmaBridge.Editor.Fonts;
 using UnityFigmaBridge.Editor.Utils;
 using UnityFigmaBridge.Runtime.UI;
@@ -17,6 +18,13 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// Adjustment to character spacing to compensate for differences between Figma and TextMeshPro rendering
         /// </summary>
         private const float FIGMA_CHARACTER_SPACING_ADJUSTMENT = -0.7f;
+
+        private static bool ShouldUseTMP(FigmaImportProcessData data)
+        {
+            // If this file compiles, TMPro is present — no runtime reflection needed.
+            if (data?.Settings == null) return true;
+            return data.Settings.TextMode != Settings.TextRenderMode.LegacyText;
+        }
 
         /// <summary>
         /// Applies the Figma Node properties to a Unity Game object (components created in CreateUnityComponentsForNode)
@@ -97,6 +105,34 @@ namespace UnityFigmaBridge.Editor.Nodes
                 case NodeType.REGULAR_POLYGON:
                     break;
                 case NodeType.TEXT:
+                    // Legacy Text path
+                    if (!ShouldUseTMP(figmaImportProcessData))
+                    {
+                        var legacyText = nodeGameObject.GetComponent<Text>();
+                        if (legacyText != null)
+                        {
+                            legacyText.text = node.characters;
+                            legacyText.fontSize = Mathf.RoundToInt(node.style.fontSize);
+                            legacyText.color = ResolveTextColor(node);
+                            legacyText.alignment = (node.style.textAlignHorizontal, node.style.textAlignVertical) switch
+                            {
+                                (TypeStyle.TextAlignHorizontal.CENTER, TypeStyle.TextAlignVertical.TOP) => TextAnchor.UpperCenter,
+                                (TypeStyle.TextAlignHorizontal.RIGHT, TypeStyle.TextAlignVertical.TOP) => TextAnchor.UpperRight,
+                                (TypeStyle.TextAlignHorizontal.CENTER, TypeStyle.TextAlignVertical.CENTER) => TextAnchor.MiddleCenter,
+                                (TypeStyle.TextAlignHorizontal.LEFT, TypeStyle.TextAlignVertical.CENTER) => TextAnchor.MiddleLeft,
+                                (TypeStyle.TextAlignHorizontal.RIGHT, TypeStyle.TextAlignVertical.CENTER) => TextAnchor.MiddleRight,
+                                (TypeStyle.TextAlignHorizontal.CENTER, TypeStyle.TextAlignVertical.BOTTOM) => TextAnchor.LowerCenter,
+                                (TypeStyle.TextAlignHorizontal.RIGHT, TypeStyle.TextAlignVertical.BOTTOM) => TextAnchor.LowerRight,
+                                (_, TypeStyle.TextAlignVertical.CENTER) => TextAnchor.MiddleLeft,
+                                (_, TypeStyle.TextAlignVertical.BOTTOM) => TextAnchor.LowerLeft,
+                                _ => TextAnchor.UpperLeft,
+                            };
+                            var fs = FontStyle.Normal;
+                            if (node.style.italic) fs |= FontStyle.Italic;
+                            legacyText.fontStyle = fs;
+                        }
+                        break;
+                    }
                     // Get the best fit TextMeshPro font this font (handled when document processed)
                     var text = nodeGameObject.GetComponent<TextMeshProUGUI>();
                     var matchingFontMapping = figmaImportProcessData.FontMap.GetFontMapping(node.style.fontFamily, node.style.fontWeight);
@@ -110,9 +146,7 @@ namespace UnityFigmaBridge.Editor.Nodes
                     }
 
                     text.text = node.characters;
-                    text.color = node.fills != null && node.fills.Length > 0
-                        ? FigmaDataUtils.GetUnityFillColor(node.fills[0])
-                        : UnityEngine.Color.white;
+                    text.color = ResolveTextColor(node);
                     text.fontSize = node.style.fontSize;
                     text.characterSpacing = FIGMA_CHARACTER_SPACING_ADJUSTMENT;
                    
@@ -241,6 +275,30 @@ namespace UnityFigmaBridge.Editor.Nodes
             }
             // Setup visibility
             nodeGameObject.SetActive(node.visible);
+        }
+
+        /// <summary>
+        /// Resolves text color from node.fills, falling back to node.style.fills, then black.
+        /// Figma API sometimes omits node-level fills for TEXT nodes.
+        /// </summary>
+        public static UnityEngine.Color ResolveTextColor(Node node)
+        {
+            var fills = node.fills != null && node.fills.Length > 0 ? node.fills
+                : node.style?.fills != null && node.style.fills.Length > 0 ? node.style.fills
+                : null;
+
+            if (fills == null) return UnityEngine.Color.black;
+
+            // Find first visible SOLID fill
+            foreach (var fill in fills)
+            {
+                if (fill == null || !fill.visible) continue;
+                if (fill.type == Paint.PaintType.SOLID && fill.color != null)
+                    return FigmaDataUtils.GetUnityFillColor(fill);
+            }
+
+            // Fallback: try first fill regardless of type
+            return fills[0] != null ? FigmaDataUtils.GetUnityFillColor(fills[0]) : UnityEngine.Color.black;
         }
 
         private static void SetupStroke(FigmaImage figmaImage, Node node)
@@ -375,8 +433,16 @@ namespace UnityFigmaBridge.Editor.Nodes
                     // No longer need to add here - will be generated above as needed
                     break;
                 case NodeType.TEXT:
-                    // For text nodes, we use TextMeshPro
-                    nodeGameObject.AddComponent<TextMeshProUGUI>();
+                    if (ShouldUseTMP(figmaImportProcessData))
+                    {
+                        nodeGameObject.AddComponent<TextMeshProUGUI>();
+                        nodeGameObject.name += " (TMP)";
+                    }
+                    else
+                    {
+                        nodeGameObject.AddComponent<Text>();
+                        nodeGameObject.name += " (Text)";
+                    }
                     break;
                 case NodeType.DOCUMENT:
                     break;

@@ -349,7 +349,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         public static List<ServerRenderNodeData> FindAllServerRenderNodesInFile(FigmaFile file,
             List<string> missingComponentIds, List<string> downloadPageIdList,
             string sectionFilter = "", bool exportOnly = false, int syncDepth = 0,
-            List<string> selectedFrameIds = null)
+            List<string> selectedFrameIds = null, bool skipTextImages = true)
         {
             var renderSubstitutionNodeList = new List<ServerRenderNodeData>();
             foreach (var page in file.document.children)
@@ -357,7 +357,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
                 var isSelectedPage = downloadPageIdList.Contains(page.id);
                 AddRenderSubstitutionsForFigmaNode(page, renderSubstitutionNodeList, 0,
                     missingComponentIds, isSelectedPage, false, sectionFilter, exportOnly, "", "",
-                    syncDepth, selectedFrameIds);
+                    syncDepth, selectedFrameIds, skipTextImages);
             }
 
             return renderSubstitutionNodeList;
@@ -367,7 +367,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             List<ServerRenderNodeData> substitutionNodeList, int recursiveNodeDepth,
             List<string> missingComponentIds, bool isSelectedPage, bool withinComponentDefinition,
             string sectionFilter, bool exportOnly, string currentSection, string currentFrame,
-            int syncDepth, List<string> selectedFrameIds)
+            int syncDepth, List<string> selectedFrameIds, bool skipTextImages = true)
         {
             if (!figmaNode.visible) return;
 
@@ -400,6 +400,9 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             // Debug: log every node with export settings to trace why some are missed
             if (hasExport)
                 Debug.Log($"[ServerRender] CHECK: '{figmaNode.name}' ({figmaNode.id}) type={figmaNode.type} depth={recursiveNodeDepth} canAdd={canAdd} isSelectedPage={isSelectedPage} withinComponent={withinComponentDefinition} exportOnly={exportOnly}");
+
+            // Skip text nodes from server rendering when SkipTextImages is enabled
+            if (skipTextImages && figmaNode.type == NodeType.TEXT) return;
 
             // Node with export settings → download as server-rendered image, don't recurse deeper
             // Skip screen frames — they are layout containers, not flat images
@@ -437,7 +440,7 @@ namespace UnityFigmaBridge.Editor.FigmaApi
             foreach (var childNode in figmaNode.children)
                 AddRenderSubstitutionsForFigmaNode(childNode, substitutionNodeList, recursiveNodeDepth + 1,
                     missingComponentIds, isSelectedPage, withinComponentDefinition, sectionFilter, exportOnly,
-                    currentSection, currentFrame, syncDepth, selectedFrameIds);
+                    currentSection, currentFrame, syncDepth, selectedFrameIds, skipTextImages);
         }
 
         /// <summary>

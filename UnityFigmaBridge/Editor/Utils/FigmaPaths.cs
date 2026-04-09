@@ -25,7 +25,6 @@ namespace UnityFigmaBridge.Editor.Utils
 
         // ─── Structural folders ──────────────────────────
         public static string FigmaSectionsFolder => $"{FigmaAssetsRootFolder}/Sections";
-        public static string FigmaComponentPrefabFolder => $"{FigmaAssetsRootFolder}/Components";
         public static string FigmaFontMaterialPresetsFolder => $"{FigmaAssetsRootFolder}/FontMaterialPresets";
         public static string FigmaFontsFolder => $"{FigmaAssetsRootFolder}/Fonts";
 
@@ -83,13 +82,6 @@ namespace UnityFigmaBridge.Editor.Utils
             return $"{GetContextFolder()}/{GetFileNameForNode(node, duplicateCount)}.prefab";
         }
 
-        public static string GetPathForComponentPrefab(string nodeName, int duplicateCount)
-        {
-            if (duplicateCount > 0) nodeName += $"_{duplicateCount}";
-            nodeName = ReplaceUnsafeCharacters(nodeName);
-            return $"{FigmaComponentPrefabFolder}/{nodeName}.prefab";
-        }
-
         // ─── Utilities ───────────────────────────────────
 
         public static string GetFileNameForNode(Node node, int duplicateCount)
@@ -135,7 +127,6 @@ namespace UnityFigmaBridge.Editor.Utils
             var requiredDirs = new[]
             {
                 FigmaSectionsFolder,
-                FigmaComponentPrefabFolder,
                 FigmaFontMaterialPresetsFolder,
                 FigmaFontsFolder,
             };

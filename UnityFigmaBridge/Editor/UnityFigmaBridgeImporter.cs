@@ -232,8 +232,7 @@ namespace UnityFigmaBridge.Editor
         {
             if (string.IsNullOrEmpty(s_UnityFigmaBridgeSettings.RunTimeAssetsScenePath))
             {
-                if (
-                    EditorUtility.DisplayDialog("No Figma Bridge Scene set",
+                if (EditorUtility.DisplayDialog("No Figma Bridge Scene set",
                         "Use current scene for generating prototype flow? ", "OK", "Cancel"))
                 {
                     var currentScene = SceneManager.GetActiveScene();
@@ -247,13 +246,26 @@ namespace UnityFigmaBridge.Editor
                 }
             }
 
-            // If current scene doesnt match, switch
-            if (SceneManager.GetActiveScene().path != s_UnityFigmaBridgeSettings.RunTimeAssetsScenePath)
+            // Auto-create the scene file if it doesn't exist yet
+            var scenePath = s_UnityFigmaBridgeSettings.RunTimeAssetsScenePath;
+            if (!File.Exists(scenePath))
+            {
+                var sceneDir = Path.GetDirectoryName(scenePath);
+                if (!string.IsNullOrEmpty(sceneDir) && !Directory.Exists(sceneDir))
+                    Directory.CreateDirectory(sceneDir);
+                var newScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                EditorSceneManager.SaveScene(newScene, scenePath);
+                AssetDatabase.Refresh();
+                Debug.Log($"[FigmaBridge] Created scene at {scenePath}");
+            }
+
+            // If current scene doesn't match, switch
+            if (SceneManager.GetActiveScene().path != scenePath)
             {
                 if (EditorUtility.DisplayDialog("Figma Bridge Scene",
-                        "Current Scene doesnt match Runtime asset scene - switch scenes?", "OK", "Cancel"))
+                        "Current Scene doesn't match Runtime asset scene - switch scenes?", "OK", "Cancel"))
                 {
-                    EditorSceneManager.OpenScene(s_UnityFigmaBridgeSettings.RunTimeAssetsScenePath);
+                    EditorSceneManager.OpenScene(scenePath);
                 }
                 else
                 {
@@ -299,9 +311,18 @@ namespace UnityFigmaBridge.Editor
         {
             // Canvas
             var canvasGameObject = new GameObject("Canvas");
-            var canvas=canvasGameObject.AddComponent<Canvas>();
+            var canvas = canvasGameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvasGameObject.AddComponent<GraphicRaycaster>();
+
+            // CanvasScaler — apply reference resolution from settings
+            var scaler = canvasGameObject.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(
+                s_UnityFigmaBridgeSettings?.CanvasWidth ?? 1080,
+                s_UnityFigmaBridgeSettings?.CanvasHeight ?? 2400);
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0f;
 
             if (!createEventSystem) return canvas;
 
@@ -424,7 +445,8 @@ namespace UnityFigmaBridge.Editor
             var exportOnly = s_UnityFigmaBridgeSettings.OnlyImportExportNodes;
             var serverRenderNodes = FigmaDataUtils.FindAllServerRenderNodesInFile(
                 figmaFile, externalComponentList, downloadPageIdList, sectionFilter, exportOnly,
-                s_UnityFigmaBridgeSettings.SyncDepth, selectedFrameIds);
+                s_UnityFigmaBridgeSettings.SyncDepth, selectedFrameIds,
+                s_UnityFigmaBridgeSettings.SkipTextImages);
             
             // Request a render of these nodes on the server if required
             var serverRenderData=new List<FigmaServerRenderData>();
@@ -572,13 +594,13 @@ namespace UnityFigmaBridge.Editor
                 figmaFile, externalComponents, allPageIds,
                 s_UnityFigmaBridgeSettings.SelectedSection,
                 s_UnityFigmaBridgeSettings.OnlyImportExportNodes,
-                s_UnityFigmaBridgeSettings.SyncDepth);
+                s_UnityFigmaBridgeSettings.SyncDepth,
+                skipTextImages: s_UnityFigmaBridgeSettings.SkipTextImages);
 
             var processData = new FigmaImportProcessData
             {
                 Settings = s_UnityFigmaBridgeSettings,
                 SourceFile = figmaFile,
-                ComponentData = new FigmaBridgeComponentData(),
                 ServerRenderNodes = serverRenderNodes,
                 FontMap = fontMap,
             };

@@ -226,11 +226,7 @@ namespace UnityFigmaBridge.Editor.PrototypeFlow
         /// <param name="figmaImportProcessData"></param>
         public static void BindBehaviours(FigmaImportProcessData figmaImportProcessData)
         {
-            // Add all components and flowScreen prefabs, to apply behaviours
-            var allComponentPrefabsToBindBehaviours = figmaImportProcessData.ComponentData.AllComponentPrefabs;
-            allComponentPrefabsToBindBehaviours.AddRange(figmaImportProcessData.ScreenPrefabs);
-            
-            foreach (var sourcePrefab in allComponentPrefabsToBindBehaviours)
+            foreach (var sourcePrefab in figmaImportProcessData.ScreenPrefabs)
             {
                 string prefabAssetPath = AssetDatabase.GetAssetPath(sourcePrefab);
                 GameObject instantiatedPrefab = PrefabUtility.LoadPrefabContents(prefabAssetPath);

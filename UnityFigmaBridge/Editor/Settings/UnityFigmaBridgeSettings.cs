@@ -17,7 +17,13 @@ namespace UnityFigmaBridge.Editor.Settings
         
         [Space(10)]
         [Tooltip("Scene used for prototype assets, including canvas")]
-        public string RunTimeAssetsScenePath;
+        public string RunTimeAssetsScenePath = "Assets/Scenes/FigmaScene.unity";
+
+        [Tooltip("Reference canvas width (pixels)")]
+        public int CanvasWidth = 1080;
+
+        [Tooltip("Reference canvas height (pixels)")]
+        public int CanvasHeight = 2400;
         
         [Tooltip("Convert Figma Auto Layout to Unity Layout Groups (Horizontal/Vertical)")]
         public bool EnableAutoLayout = true;
@@ -34,15 +40,21 @@ namespace UnityFigmaBridge.Editor.Settings
         [Tooltip("Download missing fonts from Google Fonts automatically")]
         public bool EnableGoogleFontsDownloads = false;
 
+        [Tooltip("Never server-render text nodes — use TMP/Text components instead of downloading images")]
+        public bool SkipTextImages = true;
+
+        [Tooltip("Text rendering backend. Auto = TMP if available, otherwise legacy Text.")]
+        public TextRenderMode TextMode = TextRenderMode.Auto;
+
         [Tooltip("Only import nodes marked for Export in Figma (ignores all other nodes)")]
         public bool OnlyImportExportNodes = true;
-        
+
         [Tooltip("If true, download only selected pages and screens")]
         public bool OnlyImportSelectedPages = false;
 
         [Tooltip("Layer depth for import: 0 = full depth, 1 = top-level only, 2+ = descend N levels")]
         [Range(0, 10)]
-        public int SyncDepth = 0;
+        public int SyncDepth = 5;
 
         [HideInInspector]
         public string SelectedSection = "";
@@ -97,6 +109,13 @@ namespace UnityFigmaBridge.Editor.Settings
             }
             PageDataList.OrderBy(p => p.NodeId);
         }
+    }
+
+    public enum TextRenderMode
+    {
+        Auto,       // TMP if available, legacy Text fallback
+        TextMeshPro,
+        LegacyText,
     }
 
     [Serializable]
