@@ -19,7 +19,7 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// </summary>
         private const float FIGMA_CHARACTER_SPACING_ADJUSTMENT = -0.7f;
 
-        private static bool ShouldUseTMP(FigmaImportProcessData data)
+        private static bool ShouldUseTMP(FigmaBuildContext data)
         {
             // If this file compiles, TMPro is present — no runtime reflection needed.
             if (data?.Settings == null) return true;
@@ -32,7 +32,7 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// <param name="nodeGameObject"></param>
         /// <param name="node"></param>
         /// <param name="figmaImportProcessData"></param>
-        public static void ApplyUnityComponentPropertiesForNode(GameObject nodeGameObject,Node node, FigmaImportProcessData figmaImportProcessData)
+        public static void ApplyUnityComponentPropertiesForNode(GameObject nodeGameObject,Node node, FigmaBuildContext figmaImportProcessData)
         {
 
             switch (node.type)
@@ -418,7 +418,7 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// <param name="nodeGameObject"></param>
         /// <param name="node"></param>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public static void CreateUnityComponentsForNode(GameObject nodeGameObject,Node node,FigmaImportProcessData figmaImportProcessData)
+        public static void CreateUnityComponentsForNode(GameObject nodeGameObject,Node node,FigmaBuildContext figmaImportProcessData)
         {
             // Background fills
             switch (node.type)
@@ -479,7 +479,7 @@ namespace UnityFigmaBridge.Editor.Nodes
             }
         }
 
-        public static bool NodeIsSubstitution(Node node, FigmaImportProcessData figmaImportProcessData)
+        public static bool NodeIsSubstitution(Node node, FigmaBuildContext figmaImportProcessData)
         {
             switch (node.type)
             {

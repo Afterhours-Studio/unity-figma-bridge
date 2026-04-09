@@ -545,38 +545,6 @@ namespace UnityFigmaBridge.Editor.FigmaApi
         }
 
         /// <summary>
-        /// Finds Flow Starting Point id, from first page where one found
-        /// </summary>
-        /// <param name="sourceFile"></param>
-        /// <returns></returns>
-        public static string FindPrototypeFlowStartScreenId(FigmaFile sourceFile)
-        {
-            foreach (var canvasNode in sourceFile.document.children)
-            {
-                if (canvasNode.flowStartingPoints != null && canvasNode.flowStartingPoints.Length > 0)
-                    return canvasNode.flowStartingPoints[0].nodeId;
-            }
-
-            return string.Empty;
-        }
-
-        /// <summary>
-        /// Lists all prototype flow starting points in a given Figma file
-        /// </summary>
-        /// <param name="sourceFile"></param>
-        /// <returns></returns>
-        public static List<string> GetAllPrototypeFlowStartingPoints(FigmaFile sourceFile)
-        {
-            var allFlowStartingPoints = new List<string>();
-            foreach (var canvasNode in sourceFile.document.children)
-            {
-                if (canvasNode.flowStartingPoints == null) continue;
-                allFlowStartingPoints.AddRange(canvasNode.flowStartingPoints.Select(flowStartingPoint => flowStartingPoint.nodeId));
-            }
-            return allFlowStartingPoints;
-        }
-        
-        /// <summary>
         /// Lists all Page Nodes in a given Figma file
         /// </summary>
         /// <param name="sourceFile"></param>

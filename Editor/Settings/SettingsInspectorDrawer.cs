@@ -30,8 +30,6 @@ namespace UnityFigmaBridge.Editor.Settings
             serializedObject.Update();
 
             DrawProp(serializedObject, "DocumentUrl", "Figma URL", "Figma URL - supports Document, Page, and Frame URLs with node-id");
-            DrawProp(serializedObject, "BuildPrototypeFlow", "Prototype Flow", "Generate logic and linking of screens based on Figma's Prototype settings");
-
             GUILayout.Space(6);
             DrawProp(serializedObject, "RunTimeAssetsScenePath", "Scene Path", "Scene path for prototype assets. Created automatically if it does not exist.");
             DrawProp(serializedObject, "AssetOutputPath", "Output Path", "Folder to store imported Figma assets (prefabs, images, fonts)");

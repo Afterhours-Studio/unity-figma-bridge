@@ -631,7 +631,7 @@ namespace UnityFigmaBridge.Editor
                 s_UnityFigmaBridgeSettings.SyncDepth,
                 skipTextImages: s_UnityFigmaBridgeSettings.SkipTextImages);
 
-            var processData = new FigmaImportProcessData
+            var processData = new FigmaBuildContext
             {
                 Settings = s_UnityFigmaBridgeSettings,
                 SourceFile = figmaFile,

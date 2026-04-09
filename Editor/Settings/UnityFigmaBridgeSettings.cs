@@ -12,9 +12,6 @@ namespace UnityFigmaBridge.Editor.Settings
         [Tooltip("Figma URL — supports both Document URLs and Page/Frame URLs with node-id")]
         public string DocumentUrl;
         
-        [Tooltip("Generate logic and linking of screens based on FIGMA's 'Prototype' settings")]
-        public bool BuildPrototypeFlow=true;
-        
         [Space(10)]
         [Tooltip("Scene used for prototype assets, including canvas")]
         public string RunTimeAssetsScenePath = "Assets/Scenes/FigmaScene.unity";
@@ -28,9 +25,6 @@ namespace UnityFigmaBridge.Editor.Settings
         [Tooltip("Convert Figma Auto Layout to Unity Layout Groups (Horizontal/Vertical)")]
         public bool EnableAutoLayout = true;
         
-        [HideInInspector]
-        public string ScreenBindingNamespace = "";
-
         [Tooltip("Scale for rendering server images")]
         public int ServerRenderImageScale=1;
 

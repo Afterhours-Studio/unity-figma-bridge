@@ -18,7 +18,7 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// <param name="node"></param>
         /// <param name="figmaImportProcessData"></param>
         public static void ApplyAllFigmaEffectsToUnityNode(GameObject nodeGameObject,Node node, 
-            FigmaImportProcessData figmaImportProcessData)
+            FigmaBuildContext figmaImportProcessData)
         {
             foreach (var effect in node.effects) ApplyEffectToUnityNode(nodeGameObject,node,effect,figmaImportProcessData);
             
@@ -32,7 +32,7 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// <param name="node"></param>
         /// <param name="effect"></param>
         /// <param name="figmaImportProcessData"></param>
-        private static void ApplyEffectToUnityNode(GameObject nodeGameObject,Node node,Effect effect, FigmaImportProcessData figmaImportProcessData)
+        private static void ApplyEffectToUnityNode(GameObject nodeGameObject,Node node,Effect effect, FigmaBuildContext figmaImportProcessData)
         {
             switch (effect.type)
             {

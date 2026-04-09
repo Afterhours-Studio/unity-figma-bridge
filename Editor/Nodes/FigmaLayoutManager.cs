@@ -19,7 +19,7 @@ namespace UnityFigmaBridge.Editor.Nodes
         /// <param name="figmaImportProcessData"></param>
         /// <param name="scrollContentGameObject">Generated scroll content object (if generated)</param>
         public static void ApplyLayoutPropertiesForNode( GameObject nodeGameObject,Node node,
-            FigmaImportProcessData figmaImportProcessData,out GameObject scrollContentGameObject)
+            FigmaBuildContext figmaImportProcessData,out GameObject scrollContentGameObject)
         {
             
             // Depending on whether scrolling is applied, we may want to add layout to this object or to the content
