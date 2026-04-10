@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Afterhours.FigmaBridge.Runtime;
 using TMPro;
 using UnityEditor;
@@ -240,6 +240,8 @@ namespace Afterhours.FigmaBridge.Editor
                         outlineWidth = 4.0f*node.strokeWeight / node.style.fontSize;
                         // Clamp to 0.5
                         outlineWidth = Mathf.Clamp(outlineWidth, 0, 0.5f);
+                        // Quantize to nearest bucket to reduce material preset count
+                        outlineWidth = FontManager.QuantizeOutlineWidth(outlineWidth).width;
                     }
                     var effectMaterialPreset = FontManager.GetEffectMaterialPreset(matchingFontMapping,
                         hasShadowEffect, shadowColor, shadowDistance, hasStrokes, outlineColor, outlineWidth);

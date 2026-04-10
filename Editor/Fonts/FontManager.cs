@@ -52,6 +52,33 @@ namespace Afterhours.FigmaBridge.Editor
     public static class FontManager
     {
         /// <summary>
+        /// Outline thickness buckets — snaps continuous Figma outline values to a small
+        /// fixed set so we create far fewer material presets.
+        /// Each entry: (upper threshold, quantized value, human label).
+        /// </summary>
+        private static readonly (float threshold, float value, string label)[] OutlineBuckets =
+        {
+            (0.15f, 0.10f, "Thin"),
+            (0.30f, 0.22f, "Medium"),
+            (0.50f, 0.40f, "Thick"),
+        };
+
+        /// <summary>
+        /// Snap a raw outline width (0–0.5) to the nearest preset bucket.
+        /// Returns the quantized width and a human-readable label for material naming.
+        /// </summary>
+        public static (float width, string label) QuantizeOutlineWidth(float rawWidth)
+        {
+            foreach (var bucket in OutlineBuckets)
+            {
+                if (rawWidth <= bucket.threshold)
+                    return (bucket.value, bucket.label);
+            }
+            // Beyond all thresholds → clamp to the largest bucket
+            var last = OutlineBuckets[OutlineBuckets.Length - 1];
+            return (last.value, last.label);
+        }
+        /// <summary>
         /// Generates a map of fonts found int the document and font to map to
         /// </summary>
         /// <param name="figmaFile"></param>
@@ -212,7 +239,14 @@ namespace Afterhours.FigmaBridge.Editor
             newMaterialPreset.shader = Shader.Find("TextMeshPro/Mobile/Distance Field");
             
             var nameSuffix = new System.Text.StringBuilder();
-            if (outline) nameSuffix.Append($"_Outline_{(int)(outlineThickness * 1000):D4}");
+            string outlineLabel = null;
+            if (outline)
+            {
+                var q = QuantizeOutlineWidth(outlineThickness);
+                outlineThickness = q.width;
+                outlineLabel = q.label;
+                nameSuffix.Append($"_Outline_{outlineLabel}");
+            }
             if (shadow) nameSuffix.Append("_Shadow");
             var materialName = $"{fontMapEntry.FontAsset.name}{nameSuffix}";
             newMaterialPreset.name = materialName;

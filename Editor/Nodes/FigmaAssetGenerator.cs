@@ -541,6 +541,8 @@ namespace Afterhours.FigmaBridge.Editor
             {
                 var outlineColor = FigmaDataUtils.GetUnityFillColor(node.strokes[0]);
                 var outlineWidth = Mathf.Clamp(5f * node.strokeWeight / node.style.fontSize, 0f, 0.5f);
+                // Quantize to nearest bucket to reduce material preset count
+                outlineWidth = FontManager.QuantizeOutlineWidth(outlineWidth).width;
                 var mat = FontManager.GetEffectMaterialPreset(
                     fontMapping, false, UnityEngine.Color.white, Vector2.zero,
                     true, outlineColor, outlineWidth);
