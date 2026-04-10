@@ -13,7 +13,7 @@ https://github.com/Afterhours-Studio/unity-figma-bridge.git
 To lock a specific version:
 
 ```
-https://github.com/Afterhours-Studio/unity-figma-bridge.git#v1.0.2
+https://github.com/Afterhours-Studio/unity-figma-bridge.git#v1.0.3
 ```
 
 To always use the latest from main:

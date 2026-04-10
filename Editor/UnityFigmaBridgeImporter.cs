@@ -378,19 +378,41 @@ namespace Afterhours.FigmaBridge.Editor
             // TODO - Once we move to processing only differences, we won't remove existing files
             FigmaPaths.CreateRequiredDirectories();
 
-            // Write .synced markers early so Build tab shows these frames even if import hangs later
+            // Incremental sync: compute content hashes and detect changed frames
+            var importedFrames = CollectImportedFrameRecords(figmaFile, selectedFrameIds, s_UnityFigmaBridgeSettings.SelectedSection);
+            var changedFrameIds = new HashSet<string>();
             try
             {
-                var importedFrames = CollectImportedFrameRecords(figmaFile, selectedFrameIds, s_UnityFigmaBridgeSettings.SelectedSection);
+                foreach (var frame in importedFrames)
+                {
+                    var folder = FigmaPaths.GetContextFolder(frame.sectionName, frame.name);
+                    var oldManifest = SyncedFrameManifest.Load(folder);
+                    var (frameNode, _) = FindFrameAndParent(figmaFile, frame.id);
+                    var newHash = frameNode != null ? NodeHasher.ComputeHash(frameNode) : "";
+
+                    if (oldManifest == null || oldManifest.contentHash != newHash)
+                        changedFrameIds.Add(frame.id);
+                }
+
+                // Write updated manifests for all frames
                 foreach (var frame in importedFrames)
                 {
                     var folder = FigmaPaths.GetContextFolder(frame.sectionName, frame.name);
                     Directory.CreateDirectory(folder);
-                    File.WriteAllText(Path.Combine(folder, ".synced"), frame.id);
+                    var (frameNode, _) = FindFrameAndParent(figmaFile, frame.id);
+                    SyncedFrameManifest.Save(folder, new SyncedFrameManifest
+                    {
+                        frameId = frame.id,
+                        documentVersion = figmaFile.version,
+                        lastModified = figmaFile.lastModified,
+                        contentHash = frameNode != null ? NodeHasher.ComputeHash(frameNode) : "",
+                        syncedAt = DateTime.UtcNow.ToString("o"),
+                    });
                 }
-                Debug.Log($"[FigmaBridge] Marked {importedFrames.Count} frame(s) as synced");
+
+                Debug.Log($"[FigmaBridge] {changedFrameIds.Count}/{importedFrames.Count} frame(s) changed, {importedFrames.Count - changedFrameIds.Count} unchanged (skipping asset download)");
             }
-            catch (Exception e) { Debug.LogError($"[FigmaBridge] .synced write failed: {e}"); }
+            catch (Exception e) { Debug.LogError($"[FigmaBridge] Incremental sync check failed: {e}"); }
             
             // Next build a list of all externally referenced components not included in the document (eg
             // from external libraries) and download
@@ -422,35 +444,36 @@ namespace Afterhours.FigmaBridge.Editor
             // The source component. This has to be done early to ensure download of server images
             //FigmaFileUtils.ReplaceMissingComponents(figmaFile,externalComponentList);
             
+            // Incremental sync: only collect/download assets for changed frames
+            var effectiveFrameIds = changedFrameIds.Count < importedFrames.Count
+                ? changedFrameIds.ToList()
+                : selectedFrameIds;
+
             // Some of the nodes, we'll want to identify to use Figma server side rendering (eg vector shapes, SVGs)
             // First up create a list of nodes we'll substitute with rendered images
             var sectionFilter = s_UnityFigmaBridgeSettings.SelectedSection;
             var exportOnly = s_UnityFigmaBridgeSettings.OnlyImportExportNodes;
             var serverRenderNodes = FigmaDataUtils.FindAllServerRenderNodesInFile(
                 figmaFile, externalComponentList, downloadPageIdList, sectionFilter, exportOnly,
-                s_UnityFigmaBridgeSettings.SyncDepth, selectedFrameIds,
+                s_UnityFigmaBridgeSettings.SyncDepth, effectiveFrameIds,
                 s_UnityFigmaBridgeSettings.SkipTextImages);
             
             // Request a render of these nodes on the server if required
             var serverRenderData=new List<FigmaServerRenderData>();
             if (serverRenderNodes.Count > 0)
             {
-                // Dedup Export nodes by safe name: only request one node per unique export name,
+                // Dedup server render nodes by safe name: only request one node per unique name,
                 // and skip entirely if a file with that name already exists anywhere in Sections.
-                var seenExportNames = new HashSet<string>();
+                var seenNames = new HashSet<string>();
                 var sectionsDir = FigmaPaths.FigmaSectionsFolder;
                 var allNodeIds = new List<string>();
                 foreach (var n in serverRenderNodes)
                 {
-                    if (n.RenderType == ServerRenderType.Export)
-                    {
-                        var safeName = FigmaPaths.MakeValidFileName(n.SourceNode.name.Trim());
-                        if (!seenExportNames.Add(safeName)) continue;
-                        // Already on disk somewhere in Sections → skip download entirely
-                        if (Directory.Exists(sectionsDir) &&
-                            Directory.GetFiles(sectionsDir, safeName + ".png", SearchOption.AllDirectories).Length > 0)
-                            continue;
-                    }
+                    var safeName = FigmaPaths.MakeValidFileName(FigmaPaths.StripConventionTags(n.SourceNode.name.Trim()));
+                    if (!seenNames.Add(safeName)) continue;
+                    if (Directory.Exists(sectionsDir) &&
+                        Directory.GetFiles(sectionsDir, safeName + ".png", SearchOption.AllDirectories).Length > 0)
+                        continue;
                     allNodeIds.Add(n.SourceNode.id);
                 }
                 // As the API has an upper limit of images that can be rendered in a single request, we'll need to batch
@@ -483,7 +506,7 @@ namespace Afterhours.FigmaBridge.Editor
             
             // Track fills that are actually used. This is needed as FIGMA has a way of listing any bitmap used rather than active
             var foundImageFills = FigmaDataUtils.GetAllImageFillIdsFromFile(
-                figmaFile, downloadPageIdList, sectionFilter, exportOnly, selectedFrameIds);
+                figmaFile, downloadPageIdList, sectionFilter, exportOnly, effectiveFrameIds);
 
             // Get image fill data for the document (list of urls to download any bitmap data used)
             FigmaImageFillData activeFigmaImageFillData;

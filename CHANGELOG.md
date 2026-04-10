@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.3] - 2026-04-10
+
+### Added
+- **9-Slice auto-detect** — rounded rectangles with `cornerRadius` and frames with a 3×3 Rectangle grid pattern (common button assets) are automatically set to `Image.Type.Sliced` with correct sprite borders.
+- **`[9Slice]` / `[9Slice:N]` naming convention** — tag nodes in Figma to force 9-slice with auto or explicit border size. Supports `:` and `_` separators.
+- **`AutoSlice9` setting** (default on) — toggle 9-slice auto-detection in Build settings.
+- **Incremental sync** — content hash (SHA256) computed per frame; unchanged frames skip asset downloads on re-sync. `.synced` files upgraded from plain text to JSON manifest with `contentHash`, `documentVersion`, `lastModified`, `syncedAt`.
+- **Sync timestamp in Build tab** — each frame row shows last sync time.
+- **Server render dedup** — all server-rendered nodes (not just Export) are deduplicated by name, preventing redundant downloads of shared assets like buttons.
+- **`StripConventionTags`** — `[Button]`, `[9Slice:N]`, `[RectMask2D]` tags are stripped from filenames when saving server-rendered images.
+- **Outline width quantization** — TMP outline material presets are bucketed into Thin/Medium/Thick to reduce preset count.
+
+### Fixed
+- Server-rendered nodes used `absoluteRenderBounds` for size/position, which includes children's effects (shadows) and inflated the RectTransform. Now uses `node.size` and `absoluteBoundingBox`.
+- `[9Slice:N]` explicit border was incorrectly padded +1px. Now only auto-detected `cornerRadius` borders get +1 padding.
+
 ## [1.0.2] - 2026-04-09
 
 ### Added

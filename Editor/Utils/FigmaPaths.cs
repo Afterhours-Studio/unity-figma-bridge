@@ -68,7 +68,7 @@ namespace Afterhours.FigmaBridge.Editor
                 : GetContextFolder();
 
             if (entry != null && entry.RenderType == ServerRenderType.Export)
-                return $"{folder}/{MakeValidFileName(entry.SourceNode.name.Trim())}.png";
+                return $"{folder}/{MakeValidFileName(StripConventionTags(entry.SourceNode.name.Trim()))}.png";
 
             var safeNodeId = FigmaDataUtils.ReplaceUnsafeFileCharactersForNodeId(nodeId);
             return $"{folder}/{safeNodeId}.png";
@@ -92,6 +92,20 @@ namespace Afterhours.FigmaBridge.Editor
         {
             var safeFilename = inputFilename.Trim();
             return MakeValidFileName(safeFilename);
+        }
+
+        /// <summary>
+        /// Strip convention tags like [Button], [9Slice:24], [RectMask2D] from a node name.
+        /// </summary>
+        public static string StripConventionTags(string name)
+        {
+            while (name.StartsWith("["))
+            {
+                var close = name.IndexOf(']');
+                if (close < 0) break;
+                name = name.Substring(close + 1).TrimStart();
+            }
+            return name;
         }
 
         public static string MakeValidFileName(string name)

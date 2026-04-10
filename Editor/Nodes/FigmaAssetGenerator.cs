@@ -63,17 +63,25 @@ namespace Afterhours.FigmaBridge.Editor
             var tagButton = false;
             var tagRectMask = false;
             var tagScrollRect = false;
+            var tag9SliceBorder = 0f;
             while (nodeName.StartsWith("["))
             {
                 var close = nodeName.IndexOf(']');
                 if (close < 0) break;
                 var tag = nodeName.Substring(1, close - 1);
                 nodeName = nodeName.Substring(close + 1).TrimStart();
-                switch (tag.ToLower())
+                var tagLower = tag.ToLower();
+                if (tagLower == "button") tagButton = true;
+                else if (tagLower == "rectmask2d") tagRectMask = true;
+                else if (tagLower == "scrollrect") tagScrollRect = true;
+                else if (tagLower.StartsWith("9slice"))
                 {
-                    case "button": tagButton = true; break;
-                    case "rectmask2d": tagRectMask = true; break;
-                    case "scrollrect": tagScrollRect = true; break;
+                    // [9Slice] = auto, [9Slice:24] or [9Slice_24] = explicit border
+                    var sepIdx = tag.IndexOfAny(new[] { ':', '_' }, 6);
+                    if (sepIdx >= 0 && float.TryParse(tag.Substring(sepIdx + 1), out var border))
+                        tag9SliceBorder = border;
+                    else
+                        tag9SliceBorder = -1; // auto
                 }
             }
             if (string.IsNullOrWhiteSpace(nodeName)) nodeName = node.name;
@@ -98,7 +106,7 @@ namespace Afterhours.FigmaBridge.Editor
                 // Fall back to searching the entire Sections tree by filename.
                 if (sprite == null && serverEntry.RenderType == ServerRenderType.Export)
                 {
-                    var fileName = FigmaPaths.MakeValidFileName(serverEntry.SourceNode.name.Trim()) + ".png";
+                    var fileName = FigmaPaths.MakeValidFileName(FigmaPaths.StripConventionTags(serverEntry.SourceNode.name.Trim())) + ".png";
                     var sectionsDir = FigmaPaths.FigmaSectionsFolder;
                     if (Directory.Exists(sectionsDir))
                     {
@@ -124,6 +132,13 @@ namespace Afterhours.FigmaBridge.Editor
                     }
                     var img = go.AddComponent<Image>();
                     img.sprite = sprite;
+                    // 9-slice: [9Slice] tag → explicit, cornerRadius → auto-detect
+                    var sliceBorder = Resolve9SliceBorder(node, sprite, tag9SliceBorder, processData.Settings.AutoSlice9);
+                    if (sliceBorder > 0)
+                    {
+                        EnsureSpriteBorder(sprite, sliceBorder);
+                        img.type = Image.Type.Sliced;
+                    }
                     if (node.opacity < 1)
                         go.AddComponent<CanvasGroup>().alpha = node.opacity;
                     ApplyConventionTags(go, tagButton, tagRectMask);
@@ -143,7 +158,7 @@ namespace Afterhours.FigmaBridge.Editor
             }
 
             // Apply visual: Image or TextMeshProUGUI
-            bool hasImageFill = ApplyCleanVisual(go, node, processData);
+            bool hasImageFill = ApplyCleanVisual(go, node, processData, tag9SliceBorder);
 
             // If node has an IMAGE fill loaded successfully and no text children,
             // the image IS the complete visual — don't build redundant shape children.
@@ -362,23 +377,27 @@ namespace Afterhours.FigmaBridge.Editor
             rt.anchorMin = rt.anchorMax = new Vector2(0, 1);
             rt.pivot = new Vector2(0, 1);
 
-            var rb = node.absoluteRenderBounds;
-            rt.sizeDelta = new Vector2(rb.width, rb.height);
+            // Use node.size (actual design size) instead of absoluteRenderBounds
+            // (which includes children's effects like shadows and expands beyond the node)
+            rt.sizeDelta = new Vector2(node.size.x, node.size.y);
 
             var parentPos = parentNode?.absoluteBoundingBox != null
                 ? new Vector2(parentNode.absoluteBoundingBox.x, parentNode.absoluteBoundingBox.y)
                 : Vector2.zero;
 
-            rt.anchoredPosition = new Vector2(rb.x - parentPos.x, -(rb.y - parentPos.y));
+            rt.anchoredPosition = new Vector2(
+                node.absoluteBoundingBox.x - parentPos.x,
+                -(node.absoluteBoundingBox.y - parentPos.y));
 
-            if (node.constraints != null) NodeTransformManager.ApplyFigmaConstraints(rt, node, parentNode);
+            if (node.constraints != null && parentNode != null)
+                NodeTransformManager.ApplyFigmaConstraints(rt, node, parentNode);
         }
 
         /// <summary>
         /// Apply clean visual components — standard Image or TextMeshProUGUI only.
         /// Returns true if an IMAGE fill sprite was loaded (node visual is complete, children are redundant).
         /// </summary>
-        private static bool ApplyCleanVisual(GameObject go, Node node, FigmaBuildContext processData)
+        private static bool ApplyCleanVisual(GameObject go, Node node, FigmaBuildContext processData, float tag9SliceBorder = 0f)
         {
             switch (node.type)
             {
@@ -394,7 +413,7 @@ namespace Afterhours.FigmaBridge.Editor
                 case NodeType.INSTANCE:
                 case NodeType.SECTION:
                 case NodeType.GROUP:
-                    return ApplyCleanImage(go, node, processData);
+                    return ApplyCleanImage(go, node, processData, tag9SliceBorder);
 
                 case NodeType.VECTOR:
                 case NodeType.BOOLEAN_OPERATION:
@@ -422,7 +441,7 @@ namespace Afterhours.FigmaBridge.Editor
         /// Apply a standard Unity Image for solid color or image fills.
         /// Returns true if an IMAGE fill sprite was loaded successfully.
         /// </summary>
-        private static bool ApplyCleanImage(GameObject go, Node node, FigmaBuildContext processData)
+        private static bool ApplyCleanImage(GameObject go, Node node, FigmaBuildContext processData, float tag9SliceBorder = 0f)
         {
             if (node.fills == null || node.fills.Length == 0)
             {
@@ -457,7 +476,16 @@ namespace Afterhours.FigmaBridge.Editor
                     if (sprite != null)
                     {
                         img.sprite = sprite;
-                        img.type = Image.Type.Simple;
+                        var sliceBorder = Resolve9SliceBorder(node, sprite, tag9SliceBorder, processData.Settings.AutoSlice9);
+                        if (sliceBorder > 0)
+                        {
+                            EnsureSpriteBorder(sprite, sliceBorder);
+                            img.type = Image.Type.Sliced;
+                        }
+                        else
+                        {
+                            img.type = Image.Type.Simple;
+                        }
                         img.preserveAspect = fill.scaleMode == Paint.ScaleMode.FIT;
                         return true;
                     }
@@ -472,6 +500,105 @@ namespace Afterhours.FigmaBridge.Editor
                     img.color = FigmaDataUtils.GetUnityFillColor(fill);
                     return false;
             }
+        }
+
+        /// <summary>
+        /// Resolve 9-slice border size from [9Slice] tag, 3×3 grid pattern, or cornerRadius.
+        /// Returns 0 if no 9-slice should be applied.
+        /// </summary>
+        private static float Resolve9SliceBorder(Node node, Sprite sprite, float tag9SliceBorder, bool autoSlice)
+        {
+            // [9Slice:N] tag — explicit border
+            if (tag9SliceBorder > 0) return tag9SliceBorder;
+
+            // [9Slice] tag without value — auto = 25% of shortest side
+            if (tag9SliceBorder < 0 && sprite != null && sprite.texture != null)
+                return Mathf.Min(sprite.texture.width, sprite.texture.height) * 0.25f;
+
+            if (!autoSlice) return 0;
+
+            // Auto-detect 3×3 grid pattern (9 Rectangle children with IMAGE fills → 9-slice)
+            var gridBorder = Detect9SliceGrid(node);
+            if (gridBorder > 0) return gridBorder;
+
+            // Auto-detect from cornerRadius (+1 padding to avoid curve edge)
+            var maxRadius = FigmaDataUtils.GetMaxCornerRadius(node);
+            if (maxRadius > 0 && (node.type == NodeType.RECTANGLE || node.type == NodeType.FRAME
+                                  || node.type == NodeType.COMPONENT || node.type == NodeType.INSTANCE))
+                return maxRadius + 1;
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Detect 9-slice 3×3 grid pattern: exactly 9 RECTANGLE children with IMAGE fills,
+        /// arranged in a 3×3 grid where the 4 corners share the same size.
+        /// Returns max(corner width, corner height) as border, or 0 if not detected.
+        /// </summary>
+        private static float Detect9SliceGrid(Node node)
+        {
+            if (node.children == null || node.children.Length != 9) return 0;
+
+            // All children must be RECTANGLE with IMAGE fill
+            foreach (var child in node.children)
+            {
+                if (child.type != NodeType.RECTANGLE) return 0;
+                if (child.fills == null || child.fills.Length == 0) return 0;
+                if (child.fills[0].type != Paint.PaintType.IMAGE) return 0;
+            }
+
+            // Sort by position: top-to-bottom, then left-to-right
+            var sorted = new Node[9];
+            System.Array.Copy(node.children, sorted, 9);
+            System.Array.Sort(sorted, (a, b) =>
+            {
+                var ay = a.relativeTransform != null ? a.relativeTransform[1, 2] : 0f;
+                var by = b.relativeTransform != null ? b.relativeTransform[1, 2] : 0f;
+                var cmp = ay.CompareTo(by);
+                if (cmp != 0) return cmp;
+                var ax = a.relativeTransform != null ? a.relativeTransform[0, 2] : 0f;
+                var bx = b.relativeTransform != null ? b.relativeTransform[0, 2] : 0f;
+                return ax.CompareTo(bx);
+            });
+
+            // Verify 3 distinct rows
+            float Row(Node n) => n.relativeTransform != null ? n.relativeTransform[1, 2] : 0f;
+            var r0 = Row(sorted[0]);
+            var r1 = Row(sorted[3]);
+            var r2 = Row(sorted[6]);
+            if (Mathf.Approximately(r0, r1) || Mathf.Approximately(r1, r2)) return 0;
+
+            // Corner sizes: top-left [0], top-right [2], bottom-left [6], bottom-right [8]
+            var tl = sorted[0].size;
+            var tr = sorted[2].size;
+            var bl = sorted[6].size;
+            var br = sorted[8].size;
+
+            // All corners should have matching width and matching height
+            if (!Mathf.Approximately(tl.x, bl.x) || !Mathf.Approximately(tr.x, br.x)) return 0;
+            if (!Mathf.Approximately(tl.y, tr.y) || !Mathf.Approximately(bl.y, br.y)) return 0;
+            if (!Mathf.Approximately(tl.x, tr.x)) return 0; // left corners width == right corners width
+
+            return Mathf.Max(tl.x, tl.y);
+        }
+
+        /// <summary>
+        /// Ensure a sprite has 9-slice borders set based on corner radius.
+        /// Re-imports the texture if the border needs updating.
+        /// </summary>
+        private static void EnsureSpriteBorder(Sprite sprite, float borderSize)
+        {
+            var path = AssetDatabase.GetAssetPath(sprite);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) return;
+
+            var border = Mathf.CeilToInt(borderSize);
+            var newBorder = new Vector4(border, border, border, border);
+
+            if (importer.spriteBorder == newBorder) return;
+
+            importer.spriteBorder = newBorder;
+            importer.SaveAndReimport();
         }
 
         /// <summary>

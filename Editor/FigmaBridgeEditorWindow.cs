@@ -556,6 +556,18 @@ namespace Afterhours.FigmaBridge.Editor
                 var nameRect = new Rect(rRect.x, rRect.y, rRect.width - 70, rowH);
                 GUI.Label(nameRect, entry.Name, nameStyle);
 
+                // Sync time label
+                if (!string.IsNullOrEmpty(entry.LastSyncedAt))
+                {
+                    var syncRect = new Rect(rRect.xMax - 200, rRect.y + 6, 60, 16);
+                    var syncStyle = new GUIStyle(EditorStyles.miniLabel)
+                    {
+                        fontSize = 9, alignment = TextAnchor.MiddleRight,
+                        normal = { textColor = MutedText },
+                    };
+                    GUI.Label(syncRect, entry.LastSyncedAt, syncStyle);
+                }
+
                 // Existing badge
                 if (entry.ExistsOnDisk)
                 {
@@ -638,7 +650,16 @@ namespace Afterhours.FigmaBridge.Editor
             var folderPath = FigmaPaths.GetContextFolder(sectionName, safeName);
 
             // Only show frames that have been synced (marked by importer)
-            if (!System.IO.File.Exists(System.IO.Path.Combine(folderPath, ".synced"))) return;
+            if (!SyncedFrameManifest.Exists(folderPath)) return;
+
+            var manifest = SyncedFrameManifest.Load(folderPath);
+            var syncedAt = "";
+            if (manifest?.syncedAt != null)
+            {
+                if (System.DateTime.TryParse(manifest.syncedAt, null,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+                    syncedAt = dt.ToLocalTime().ToString("MM/dd HH:mm");
+            }
 
             var prefabPath = $"{folderPath}/{safeName}.prefab";
             _buildFrames.Add(new BuildFrameEntry
@@ -649,6 +670,7 @@ namespace Afterhours.FigmaBridge.Editor
                 SectionName = sectionName ?? "(No Section)",
                 PrefabPath = prefabPath,
                 ExistsOnDisk = System.IO.File.Exists(prefabPath),
+                LastSyncedAt = syncedAt,
             });
         }
 
@@ -1592,6 +1614,7 @@ namespace Afterhours.FigmaBridge.Editor
         public string SectionName;
         public string PrefabPath;
         public bool ExistsOnDisk;
+        public string LastSyncedAt;
     }
 
     internal class FramePreviewEntry

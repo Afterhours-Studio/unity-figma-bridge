@@ -79,6 +79,19 @@ namespace Afterhours.FigmaBridge.Editor
         }
 
         /// <summary>
+        /// Get the maximum corner radius from a node.
+        /// Uses rectangleCornerRadii (per-corner) if available, otherwise uniform cornerRadius.
+        /// </summary>
+        public static float GetMaxCornerRadius(Node node)
+        {
+            if (node.rectangleCornerRadii != null && node.rectangleCornerRadii.Length == 4)
+                return Mathf.Max(node.rectangleCornerRadii[0],
+                    Mathf.Max(node.rectangleCornerRadii[1],
+                        Mathf.Max(node.rectangleCornerRadii[2], node.rectangleCornerRadii[3])));
+            return node.cornerRadius;
+        }
+
+        /// <summary>
         /// Convert to array of Unity Vector3
         /// </summary>
         /// <param name="inputArray"></param>

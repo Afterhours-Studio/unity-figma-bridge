@@ -49,6 +49,9 @@ namespace Afterhours.FigmaBridge.Editor
         [Tooltip("Format node names to snake_case or PascalCase based on Figma naming")]
         public bool SmartNaming = true;
 
+        [Tooltip("Auto-detect rounded rectangles and set Image.Type.Sliced with sprite borders from cornerRadius")]
+        public bool AutoSlice9 = true;
+
         [HideInInspector]
         public string SelectedSection = "";
 

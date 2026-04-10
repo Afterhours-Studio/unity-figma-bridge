@@ -66,6 +66,7 @@ namespace Afterhours.FigmaBridge.Editor
             DrawProp(so, "SkipTextImages",    "Skip Text Images",      "Never server-render text nodes — use TMP/Text components instead of downloading images");
             DrawProp(so, "TextMode",          "Text Mode",             "Auto = TMP if available, else legacy Text. Force TextMeshPro or LegacyText to override.");
             DrawProp(so, "SmartNaming",       "Smart Naming",          "Format node names to snake_case or PascalCase. [Tags] are stripped automatically.");
+            DrawProp(so, "AutoSlice9",       "Auto 9-Slice",          "Auto-detect rounded rectangles and set Image.Type.Sliced with sprite borders from cornerRadius");
         }
 
         private static void DrawCanvasSize(SerializedObject so)
