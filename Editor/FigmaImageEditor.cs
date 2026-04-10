@@ -1,6 +1,7 @@
 using Afterhours.FigmaBridge.Runtime;
 using UnityEditor;
 using UnityEditor.UI;
+using UnityEngine;
 
 namespace Afterhours.FigmaBridge.Editor
 {
@@ -12,7 +13,10 @@ namespace Afterhours.FigmaBridge.Editor
         private SerializedProperty m_FillColor;
         private SerializedProperty m_StrokeColor;
         private SerializedProperty m_StrokeWidth;
-        private SerializedProperty m_CornerRadius;
+        private SerializedProperty m_CornerTL;
+        private SerializedProperty m_CornerTR;
+        private SerializedProperty m_CornerBR;
+        private SerializedProperty m_CornerBL;
         private SerializedProperty m_Fill;
         private SerializedProperty m_FillGradient;
         private SerializedProperty m_GradientHandlePositions;
@@ -32,7 +36,10 @@ namespace Afterhours.FigmaBridge.Editor
             m_FillColor = serializedObject.FindProperty("m_FillColor");
             m_StrokeColor = serializedObject.FindProperty("m_StrokeColor");
             m_StrokeWidth = serializedObject.FindProperty("m_StrokeWidth");
-            m_CornerRadius= serializedObject.FindProperty("m_CornerRadius");
+            m_CornerTL = serializedObject.FindProperty("m_CornerTL");
+            m_CornerTR = serializedObject.FindProperty("m_CornerTR");
+            m_CornerBR = serializedObject.FindProperty("m_CornerBR");
+            m_CornerBL = serializedObject.FindProperty("m_CornerBL");
             m_Fill= serializedObject.FindProperty("m_Fill");
             m_FillGradient= serializedObject.FindProperty("m_FillGradient");
             m_GradientHandlePositions= serializedObject.FindProperty("m_GradientHandlePositions");
@@ -50,7 +57,10 @@ namespace Afterhours.FigmaBridge.Editor
             EditorGUILayout.PropertyField(m_FillColor);
             EditorGUILayout.PropertyField(m_StrokeColor);
             EditorGUILayout.PropertyField(m_StrokeWidth);
-            EditorGUILayout.PropertyField(m_CornerRadius);
+            EditorGUILayout.PropertyField(m_CornerTL, new GUIContent("Corner TL"));
+            EditorGUILayout.PropertyField(m_CornerTR, new GUIContent("Corner TR"));
+            EditorGUILayout.PropertyField(m_CornerBR, new GUIContent("Corner BR"));
+            EditorGUILayout.PropertyField(m_CornerBL, new GUIContent("Corner BL"));
             EditorGUILayout.PropertyField(m_Fill);
             EditorGUILayout.PropertyField(m_FillGradient);
             EditorGUILayout.PropertyField(m_GradientHandlePositions);

@@ -407,8 +407,7 @@ namespace Afterhours.FigmaBridge.Editor
                 }
                 else if (fetching)
                 {
-                    using (new EditorGUI.DisabledGroupScope(true))
-                        DrawAccentButton("Loading Preview...", () => { });
+                    // Progress bar shown in "Select Frames to Import" card title — no button needed here
                 }
                 else
                 {
@@ -440,11 +439,6 @@ namespace Afterhours.FigmaBridge.Editor
                     EditorGUILayout.EndHorizontal();
                     GUILayout.Space(4);
 
-                    if (_isImporting)
-                    {
-                        GUILayout.Space(8);
-                        DrawProgressBar(_progressFraction, _progressMessage);
-                    }
                 }
             });
 
@@ -490,11 +484,11 @@ namespace Afterhours.FigmaBridge.Editor
             GUILayout.Space(4);
             using (new EditorGUI.DisabledGroupScope(_isImporting))
             {
-                DrawColorButton("Refresh Cache", BtnGray, BtnGrayHover, () =>
-                {
-                    RefreshCacheFromFigma();
-                    LoadBuildFrames();
-                }, GUILayout.Height(28));
+                var refreshing = _cacheRefreshRequest != null && !_cacheRefreshRequest.isDone;
+                var refreshLabel = refreshing ? "Refreshing..." : "Refresh Cache";
+                using (new EditorGUI.DisabledGroupScope(refreshing))
+                    DrawColorButton(refreshLabel, BtnGray, BtnGrayHover,
+                        () => RefreshCacheFromFigma(), GUILayout.Height(28));
             }
 
             EndCard();
@@ -774,6 +768,7 @@ namespace Afterhours.FigmaBridge.Editor
                     });
 
                 FigmaDocumentCache.Save(figmaFile);
+                _cachedFigmaFile = null; // invalidate in-memory cache
                 LoadBuildFrames();
                 AppendLog("Cache refreshed successfully");
             }
@@ -1167,8 +1162,9 @@ namespace Afterhours.FigmaBridge.Editor
         private void DrawFrameSelectionCard()
         {
             var previewFetching = _previewRequest != null && !_previewRequest.isDone;
-            BeginCard("Select Frames to Import", previewFetching);
-            if (previewFetching) Repaint();
+            var showMiniProgress = previewFetching || _isImporting;
+            BeginCard("Select Frames to Import", showMiniProgress);
+            if (showMiniProgress) Repaint();
 
             // Select all / none
             EditorGUILayout.BeginHorizontal();

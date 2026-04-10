@@ -54,7 +54,12 @@ namespace Afterhours.FigmaBridge.Runtime
         [SerializeField] protected Color m_StrokeColor = Color.white;
         [SerializeField] protected Color m_FillColor = Color.white;
         [SerializeField] protected float m_StrokeWidth = 0;
-        [SerializeField] protected Vector4 m_CornerRadius;
+        [Header("Corner Radius (normalized 0-1)")]
+        [Range(0, 1)] [SerializeField] protected float m_CornerTL;
+        [Range(0, 1)] [SerializeField] protected float m_CornerTR;
+        [Range(0, 1)] [SerializeField] protected float m_CornerBR;
+        [Range(0, 1)] [SerializeField] protected float m_CornerBL;
+        private Vector4 m_CornerRadius => new(m_CornerTL, m_CornerTR, m_CornerBR, m_CornerBL);
         [SerializeField] protected StrokePositionType m_StrokePosition=StrokePositionType.Inside;
         [SerializeField] protected FillStyle m_Fill = FillStyle.Solid;
         [SerializeField] protected ImageScaleMode m_ImageScaleMode = ImageScaleMode.Fill;
@@ -160,7 +165,10 @@ namespace Afterhours.FigmaBridge.Runtime
             get => m_CornerRadius;
             set
             {
-                m_CornerRadius = value;
+                m_CornerTL = value.x;
+                m_CornerTR = value.y;
+                m_CornerBR = value.z;
+                m_CornerBL = value.w;
                 material.SetVector(s_CornerRadiusPropertyID, m_CornerRadius);
                 base.SetMaterialDirty();
             }

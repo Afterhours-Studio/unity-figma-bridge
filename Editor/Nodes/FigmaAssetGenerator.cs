@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Afterhours.FigmaBridge.Runtime;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -463,8 +464,6 @@ namespace Afterhours.FigmaBridge.Editor
             var fill = node.fills[0];
             if (!fill.visible) return false;
 
-            var img = go.AddComponent<Image>();
-
             switch (fill.type)
             {
                 case Paint.PaintType.IMAGE when !string.IsNullOrEmpty(fill.imageRef):
@@ -475,6 +474,7 @@ namespace Afterhours.FigmaBridge.Editor
                             FigmaPaths.GetPathForImageFill(fill.imageRef));
                     if (sprite != null)
                     {
+                        var img = go.AddComponent<Image>();
                         img.sprite = sprite;
                         var sliceBorder = Resolve9SliceBorder(node, sprite, tag9SliceBorder, processData.Settings.AutoSlice9);
                         if (sliceBorder > 0)
@@ -489,15 +489,56 @@ namespace Afterhours.FigmaBridge.Editor
                         img.preserveAspect = fill.scaleMode == Paint.ScaleMode.FIT;
                         return true;
                     }
-                    img.color = FigmaDataUtils.GetUnityFillColor(fill);
+                    go.AddComponent<Image>().color = FigmaDataUtils.GetUnityFillColor(fill);
+                    return false;
+
+                case Paint.PaintType.GRADIENT_LINEAR:
+                case Paint.PaintType.GRADIENT_RADIAL:
+                    var figmaImg = go.AddComponent<FigmaImage>();
+                    figmaImg.FillGradient = FigmaDataUtils.ToUnityGradient(fill);
+                    figmaImg.Fill = fill.type == Paint.PaintType.GRADIENT_RADIAL
+                        ? FigmaImage.FillStyle.RadialGradient
+                        : FigmaImage.FillStyle.LinearGradient;
+                    // Flip Y: Figma Y=0 top → Unity Y=0 bottom
+                    if (fill.gradientHandlePositions != null && fill.gradientHandlePositions.Length == 3)
+                    {
+                        figmaImg.GradientHandlePositions = new[]
+                        {
+                            new UnityEngine.Vector2(fill.gradientHandlePositions[0].x, 1f - fill.gradientHandlePositions[0].y),
+                            new UnityEngine.Vector2(fill.gradientHandlePositions[1].x, 1f - fill.gradientHandlePositions[1].y),
+                            new UnityEngine.Vector2(fill.gradientHandlePositions[2].x, 1f - fill.gradientHandlePositions[2].y),
+                        };
+                    }
+                    // Shape type
+                    figmaImg.Shape = node.type switch
+                    {
+                        NodeType.ELLIPSE => FigmaImage.ShapeType.Ellipse,
+                        NodeType.STAR => FigmaImage.ShapeType.Star,
+                        _ => FigmaImage.ShapeType.Rectangle,
+                    };
+                    // Corner radius — normalize to 0-1 range (fraction of half shortest side)
+                    var halfShort = Mathf.Min(node.size.x, node.size.y) * 0.5f;
+                    if (halfShort > 0)
+                    {
+                        float NormR(float r) => Mathf.Clamp01(r / halfShort);
+                        if (node.rectangleCornerRadii != null && node.rectangleCornerRadii.Length == 4)
+                            figmaImg.CornerRadius = new Vector4(
+                                NormR(node.rectangleCornerRadii[0]), NormR(node.rectangleCornerRadii[1]),
+                                NormR(node.rectangleCornerRadii[2]), NormR(node.rectangleCornerRadii[3]));
+                        else if (node.cornerRadius > 0)
+                        {
+                            var nr = NormR(node.cornerRadius);
+                            figmaImg.CornerRadius = new Vector4(nr, nr, nr, nr);
+                        }
+                    }
                     return false;
 
                 case Paint.PaintType.SOLID:
-                    img.color = FigmaDataUtils.GetUnityFillColor(fill);
+                    go.AddComponent<Image>().color = FigmaDataUtils.GetUnityFillColor(fill);
                     return false;
 
                 default:
-                    img.color = FigmaDataUtils.GetUnityFillColor(fill);
+                    go.AddComponent<Image>().color = FigmaDataUtils.GetUnityFillColor(fill);
                     return false;
             }
         }
