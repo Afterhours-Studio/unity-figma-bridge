@@ -94,6 +94,12 @@ namespace Afterhours.FigmaBridge.Editor
         /// </summary>
         public static List<string> SelectedFrameIds { get; set; } = new();
 
+        /// <summary>
+        /// When true, bypass incremental sync hash check — re-download all assets.
+        /// Reset to false after sync completes.
+        /// </summary>
+        public static bool ForceSync { get; set; }
+
         public static async Task StartSyncAsync()
         {
             if (IsImporting) return;
@@ -111,6 +117,7 @@ namespace Afterhours.FigmaBridge.Editor
             finally
             {
                 IsImporting = false;
+                ForceSync = false;
                 EditorUtility.ClearProgressBar();
             }
         }
@@ -390,7 +397,7 @@ namespace Afterhours.FigmaBridge.Editor
                     var (frameNode, _) = FindFrameAndParent(figmaFile, frame.id);
                     var newHash = frameNode != null ? NodeHasher.ComputeHash(frameNode) : "";
 
-                    if (oldManifest == null || oldManifest.contentHash != newHash)
+                    if (ForceSync || oldManifest == null || oldManifest.contentHash != newHash)
                         changedFrameIds.Add(frame.id);
                 }
 

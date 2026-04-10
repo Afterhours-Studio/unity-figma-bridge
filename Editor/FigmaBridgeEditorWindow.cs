@@ -385,30 +385,40 @@ namespace Afterhours.FigmaBridge.Editor
                 {
                     using (new EditorGUI.DisabledGroupScope(true))
                         DrawAccentButton("Loading Preview...", () => { });
-                    GUILayout.Space(6);
-                    DrawProgressBar(-1, "Fetching document structure...");
                 }
                 else
                 {
+                    var forceSyncColor = new UnityEngine.Color(0.85f, 0.55f, 0.2f);
+                    var forceSyncHover = new UnityEngine.Color(0.95f, 0.65f, 0.3f);
+
+                    GUILayout.Space(4);
                     EditorGUILayout.BeginHorizontal();
+                    GUILayout.Space(4);
                     using (new EditorGUI.DisabledGroupScope(_isImporting || selectedCount == 0))
                     {
                         var syncLabel = _isImporting ? "Syncing..." : $"Sync {selectedCount} Frame(s)";
-                        var prevBg = GUI.backgroundColor;
-                        GUI.backgroundColor = selectedCount > 0 ? Accent : GUI.backgroundColor;
-                        if (GUILayout.Button(syncLabel, GUILayout.Height(36)))
+                        DrawColorButton(syncLabel, Accent, new UnityEngine.Color(0.35f, 0.62f, 0.98f), () => BeginImport());
+                        GUILayout.Space(4);
+                        DrawColorButton("Force Sync", forceSyncColor, forceSyncHover, () =>
+                        {
+                            UnityFigmaBridgeImporter.ForceSync = true;
                             BeginImport();
-                        GUI.backgroundColor = prevBg;
+                        }, GUILayout.Width(110));
                     }
+                    GUILayout.Space(4);
+                    var reloadColor = new UnityEngine.Color(0.45f, 0.45f, 0.45f);
+                    var reloadHover = new UnityEngine.Color(0.55f, 0.55f, 0.55f);
                     using (new EditorGUI.DisabledGroupScope(_isImporting))
                     {
-                        if (GUILayout.Button("Reload", GUILayout.Width(60), GUILayout.Height(36)))
+                        DrawColorButton("Reload", reloadColor, reloadHover, () =>
                         {
                             _previewFrames = null;
                             FetchPreview();
-                        }
+                        }, GUILayout.Width(70));
                     }
+                    GUILayout.Space(4);
                     EditorGUILayout.EndHorizontal();
+                    GUILayout.Space(4);
 
                     if (_isImporting)
                     {
@@ -1122,7 +1132,9 @@ namespace Afterhours.FigmaBridge.Editor
 
         private void DrawFrameSelectionCard()
         {
-            BeginCard("Select Frames to Import");
+            var previewFetching = _previewRequest != null && !_previewRequest.isDone;
+            BeginCard("Select Frames to Import", previewFetching);
+            if (previewFetching) Repaint();
 
             // Select all / none
             EditorGUILayout.BeginHorizontal();
@@ -1416,7 +1428,9 @@ namespace Afterhours.FigmaBridge.Editor
 
         // ─── UI Primitives ───────────────────────────────
 
-        private static void BeginCard(string title)
+        private static void BeginCard(string title) => BeginCard(title, false);
+
+        private static void BeginCard(string title, bool showMiniProgress)
         {
             Indent(() => { }); // spacer
             GUILayout.BeginHorizontal();
@@ -1436,6 +1450,26 @@ namespace Afterhours.FigmaBridge.Editor
             };
             GUILayout.Label(title, titleStyle);
             GUILayout.EndHorizontal();
+
+            // Inline mini progress bar — drawn over the right side of the title row
+            if (showMiniProgress)
+            {
+                var lastRect = GUILayoutUtility.GetLastRect();
+                var barH = 12f;
+                var barW = lastRect.width * 0.5f;
+                var miniBarRect = new Rect(lastRect.xMax - barW, lastRect.yMax - barH - 1, barW, barH);
+                if (Event.current.type == EventType.Repaint)
+                {
+                    EditorGUI.DrawRect(miniBarRect, Pro ? C(0.18f) : C(0.82f));
+                    var t = (float)((EditorApplication.timeSinceStartup * 0.8) % 1.0);
+                    var slideW = miniBarRect.width * 0.3f;
+                    var slideX = miniBarRect.x + (miniBarRect.width + slideW) * t - slideW;
+                    var clippedX = Mathf.Max(slideX, miniBarRect.x);
+                    var clippedR = Mathf.Min(slideX + slideW, miniBarRect.xMax);
+                    if (clippedR > clippedX)
+                        EditorGUI.DrawRect(new Rect(clippedX, miniBarRect.y, clippedR - clippedX, miniBarRect.height), Accent);
+                }
+            }
 
             // Separator
             var lineRect = GUILayoutUtility.GetRect(0, 1, GUILayout.ExpandWidth(true));
@@ -1558,15 +1592,17 @@ namespace Afterhours.FigmaBridge.Editor
         }
 
         private static void DrawAccentButton(string text, Action onClick)
+            => DrawColorButton(text, Accent, new UnityEngine.Color(0.35f, 0.62f, 0.98f), onClick);
+
+        private static void DrawColorButton(string text, UnityEngine.Color color, UnityEngine.Color hoverColor, Action onClick, params GUILayoutOption[] options)
         {
-            var btnRect = GUILayoutUtility.GetRect(0, 36, GUILayout.ExpandWidth(true));
+            var btnRect = options.Length > 0
+                ? GUILayoutUtility.GetRect(0, 36, options)
+                : GUILayoutUtility.GetRect(0, 36, GUILayout.ExpandWidth(true));
             var hover = btnRect.Contains(Event.current.mousePosition);
 
             if (Event.current.type == EventType.Repaint)
-            {
-                var color = hover ? new UnityEngine.Color(0.35f, 0.62f, 0.98f) : Accent;
-                EditorGUI.DrawRect(btnRect, color);
-            }
+                EditorGUI.DrawRect(btnRect, hover ? hoverColor : color);
 
             var label = new GUIStyle(EditorStyles.boldLabel)
             {

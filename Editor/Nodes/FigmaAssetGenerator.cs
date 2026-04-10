@@ -677,19 +677,24 @@ namespace Afterhours.FigmaBridge.Editor
             }
 
             // Auto resize
-            if (node.style.textAutoResize != TypeStyle.TextAutoResize.NONE)
+            switch (node.style.textAutoResize)
             {
-                var fitter = UnityUiUtils.GetOrAddComponent<ContentSizeFitter>(go);
-                switch (node.style.textAutoResize)
-                {
-                    case TypeStyle.TextAutoResize.HEIGHT:
-                        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-                        break;
-                    case TypeStyle.TextAutoResize.WIDTH_AND_HEIGHT:
-                        fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-                        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-                        break;
-                }
+                case TypeStyle.TextAutoResize.NONE:
+                    text.textWrappingMode = TMPro.TextWrappingModes.Normal;
+                    break;
+                case TypeStyle.TextAutoResize.HEIGHT:
+                    var fitterH = UnityUiUtils.GetOrAddComponent<ContentSizeFitter>(go);
+                    fitterH.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+                    break;
+                case TypeStyle.TextAutoResize.WIDTH_AND_HEIGHT:
+                    var fitterWH = UnityUiUtils.GetOrAddComponent<ContentSizeFitter>(go);
+                    fitterWH.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+                    fitterWH.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+                    break;
+                case TypeStyle.TextAutoResize.TRUNCATE:
+                    text.overflowMode = TMPro.TextOverflowModes.Ellipsis;
+                    text.textWrappingMode = TMPro.TextWrappingModes.Normal;
+                    break;
             }
         }
     }
