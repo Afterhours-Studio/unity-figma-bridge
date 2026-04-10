@@ -14,7 +14,7 @@ namespace Afterhours.FigmaBridge.Editor
         private Vector2 _scrollPos;
 
         // ─── Theme ───────────────────────────────────────
-        private static readonly UnityEngine.Color Accent = new(0.30f, 0.55f, 0.92f);
+        private static readonly UnityEngine.Color Accent = new(0.24f, 0.44f, 0.74f);
         private static readonly UnityEngine.Color AccentDim = new(0.22f, 0.42f, 0.72f);
         private static readonly UnityEngine.Color AccentGlow = new(0.40f, 0.65f, 1f, 0.15f);
         private static bool Pro => EditorGUIUtility.isProSkin;
@@ -34,6 +34,17 @@ namespace Afterhours.FigmaBridge.Editor
         private static UnityEngine.Color WarningText => new(0.95f, 0.75f, 0.15f);
         private static UnityEngine.Color BadgeBg => Pro ? new(0.30f, 0.55f, 0.92f, 0.18f) : new(0.30f, 0.55f, 0.92f, 0.12f);
 
+        // ─── Button colors ───────────────────────────────
+        private static readonly UnityEngine.Color AccentHover = new(0.28f, 0.50f, 0.80f);
+        private static readonly UnityEngine.Color BtnGray = new(0.35f, 0.35f, 0.35f);
+        private static readonly UnityEngine.Color BtnGrayHover = new(0.45f, 0.45f, 0.45f);
+        private static readonly UnityEngine.Color BtnRed = new(0.45f, 0.18f, 0.18f);
+        private static readonly UnityEngine.Color BtnRedHover = new(0.55f, 0.25f, 0.25f);
+        private static readonly UnityEngine.Color BtnGreen = new(0.18f, 0.40f, 0.18f);
+        private static readonly UnityEngine.Color BtnGreenHover = new(0.25f, 0.50f, 0.25f);
+        private static readonly UnityEngine.Color BtnOrange = new(0.65f, 0.42f, 0.15f);
+        private static readonly UnityEngine.Color BtnOrangeHover = new(0.75f, 0.50f, 0.22f);
+
         // ─── Import state ────────────────────────────────
         private string _tokenInput = "";
         private bool _tokenVisible;
@@ -41,7 +52,7 @@ namespace Afterhours.FigmaBridge.Editor
         private string _progressMessage = "";
         private float _progressFraction;
 
-        // Section/depth cache
+        // ─── Section/depth cache ─────────────────────────
         private string[] _cachedSectionNames;
         private int _selectedSectionIndex;
         private int _syncDepth;
@@ -61,6 +72,8 @@ namespace Afterhours.FigmaBridge.Editor
         private Vector2 _buildScrollPos;
         private bool _buildCacheLoaded;
         private string _buildCacheInfo;
+        private FigmaFile _cachedFigmaFile;
+        private DateTime _cachedFigmaFileTime;
         private bool _isBuilding;
 
         // ─── Log state ───────────────────────────────────
@@ -237,29 +250,34 @@ namespace Afterhours.FigmaBridge.Editor
                 hasToken ? SuccessText : ErrorText);
             if (tokenChanged)
             {
-                var prevBg = GUI.backgroundColor;
-                GUI.backgroundColor = Color.red;
-                if (GUILayout.Button("Cancel", GUILayout.Width(56), GUILayout.Height(18)))
-                    _tokenInput = storedToken;
-                GUI.backgroundColor = SuccessText;
-                if (GUILayout.Button("Save", GUILayout.Width(52), GUILayout.Height(18)))
+                DrawColorButton("Cancel", BtnRed, BtnRedHover, () => _tokenInput = storedToken,
+                    GUILayout.Width(54), GUILayout.Height(20));
+                GUILayout.Space(3);
+                DrawColorButton("Save", BtnGreen, BtnGreenHover, () =>
                 {
                     EditorPrefs.SetString(UnityFigmaBridgeImporter.FIGMA_PERSONAL_ACCESS_TOKEN_PREF_KEY, _tokenInput);
                     Debug.Log("Personal access token updated");
                     AppendLog("Token updated");
                     RefreshSections();
-                }
-                GUI.backgroundColor = prevBg;
+                }, GUILayout.Width(54), GUILayout.Height(20));
             }
             EditorGUILayout.EndHorizontal();
 
             GUILayout.Space(6);
             EditorGUILayout.BeginHorizontal();
+            var monoStyle = new GUIStyle(EditorStyles.textField) { font = EditorGUIUtility.Load("Fonts/RobotoMono/RobotoMono-Regular.ttf") as Font };
+            if (monoStyle.font == null) monoStyle.font = Font.CreateDynamicFontFromOSFont("Consolas", 12);
             if (_tokenVisible)
                 _tokenInput = EditorGUILayout.TextField(_tokenInput);
             else
-                _tokenInput = EditorGUILayout.PasswordField(_tokenInput);
-            if (GUILayout.Button(_tokenVisible ? "Hide" : "Show", GUILayout.Width(48), GUILayout.Height(18)))
+                _tokenInput = EditorGUILayout.PasswordField(_tokenInput, monoStyle);
+            var showStyle = new GUIStyle(EditorStyles.miniButton)
+            {
+                fixedHeight = 18, fontSize = 10,
+                padding = new RectOffset(6, 6, 2, 2),
+                normal = { textColor = Pro ? C(0.85f) : C(0.18f) },
+            };
+            if (GUILayout.Button(_tokenVisible ? "Hide" : "Show", showStyle, GUILayout.Width(44)))
                 _tokenVisible = !_tokenVisible;
             EditorGUILayout.EndHorizontal();
 
@@ -324,7 +342,13 @@ namespace Afterhours.FigmaBridge.Editor
                 EditorUtility.SetDirty(_settings);
             }
 
-            if (GUILayout.Button("Refresh", GUILayout.Width(60), GUILayout.Height(18)))
+            var refreshStyle = new GUIStyle(EditorStyles.miniButton)
+            {
+                fixedHeight = 18, fontSize = 10,
+                padding = new RectOffset(6, 6, 2, 2),
+                normal = { textColor = Pro ? C(0.85f) : C(0.18f) },
+            };
+            if (GUILayout.Button("Refresh", refreshStyle, GUILayout.Width(56)))
                 RefreshSections();
             EditorGUILayout.EndHorizontal();
 
@@ -388,8 +412,6 @@ namespace Afterhours.FigmaBridge.Editor
                 }
                 else
                 {
-                    var forceSyncColor = new UnityEngine.Color(0.85f, 0.55f, 0.2f);
-                    var forceSyncHover = new UnityEngine.Color(0.95f, 0.65f, 0.3f);
 
                     GUILayout.Space(4);
                     EditorGUILayout.BeginHorizontal();
@@ -397,24 +419,22 @@ namespace Afterhours.FigmaBridge.Editor
                     using (new EditorGUI.DisabledGroupScope(_isImporting || selectedCount == 0))
                     {
                         var syncLabel = _isImporting ? "Syncing..." : $"Sync {selectedCount} Frame(s)";
-                        DrawColorButton(syncLabel, Accent, new UnityEngine.Color(0.35f, 0.62f, 0.98f), () => BeginImport());
+                        DrawColorButton(syncLabel, Accent, AccentHover, () => BeginImport());
                         GUILayout.Space(4);
-                        DrawColorButton("Force Sync", forceSyncColor, forceSyncHover, () =>
+                        DrawColorButton("Force Sync", BtnOrange, BtnOrangeHover, () =>
                         {
                             UnityFigmaBridgeImporter.ForceSync = true;
                             BeginImport();
-                        }, GUILayout.Width(110));
+                        }, GUILayout.Width(110), GUILayout.Height(36));
                     }
                     GUILayout.Space(4);
-                    var reloadColor = new UnityEngine.Color(0.45f, 0.45f, 0.45f);
-                    var reloadHover = new UnityEngine.Color(0.55f, 0.55f, 0.55f);
                     using (new EditorGUI.DisabledGroupScope(_isImporting))
                     {
-                        DrawColorButton("Reload", reloadColor, reloadHover, () =>
+                        DrawColorButton("Reload", BtnGray, BtnGrayHover, () =>
                         {
                             _previewFrames = null;
                             FetchPreview();
-                        }, GUILayout.Width(70));
+                        }, GUILayout.Width(70), GUILayout.Height(36));
                     }
                     GUILayout.Space(4);
                     EditorGUILayout.EndHorizontal();
@@ -468,18 +488,14 @@ namespace Afterhours.FigmaBridge.Editor
             }
 
             GUILayout.Space(4);
-            EditorGUILayout.BeginHorizontal();
-            using (new EditorGUI.DisabledGroupScope(!cacheExists))
-            {
-                if (DrawSmallButton("Reload"))
-                    LoadBuildFrames();
-            }
             using (new EditorGUI.DisabledGroupScope(_isImporting))
             {
-                if (DrawSmallButton("Refresh from Figma"))
+                DrawColorButton("Refresh Cache", BtnGray, BtnGrayHover, () =>
+                {
                     RefreshCacheFromFigma();
+                    LoadBuildFrames();
+                }, GUILayout.Height(28));
             }
-            EditorGUILayout.EndHorizontal();
 
             EndCard();
 
@@ -592,16 +608,27 @@ namespace Afterhours.FigmaBridge.Editor
                     GUI.Label(badgeRect, "EXISTS", bs);
                 }
 
-                // Build button (right-aligned)
-                var btnRect = new Rect(rRect.xMax - 62, rRect.y + 4, 56, rowH - 8);
-                using (new EditorGUI.DisabledGroupScope(_isBuilding || _isImporting))
+                // Build button (right-aligned, DrawColorButton style)
+                var btnRect = new Rect(rRect.xMax - 62, rRect.y + 5, 56, rowH - 10);
+                var btnDisabled = _isBuilding || _isImporting;
+                var btnHover = !btnDisabled && btnRect.Contains(Event.current.mousePosition);
+                if (Event.current.type == EventType.Repaint)
                 {
-                    var prevBg = GUI.backgroundColor;
-                    GUI.backgroundColor = Accent;
-                    if (GUI.Button(btnRect, "Build"))
-                        BuildFrame(entry);
-                    GUI.backgroundColor = prevBg;
+                    var btnColor = btnDisabled ? C(0.35f) : btnHover ? AccentHover : Accent;
+                    EditorGUI.DrawRect(btnRect, btnColor);
                 }
+                var btnLabel = new GUIStyle(EditorStyles.boldLabel)
+                {
+                    fontSize = 10, alignment = TextAnchor.MiddleCenter,
+                    normal = { textColor = btnDisabled ? C(0.55f) : UnityEngine.Color.white },
+                };
+                GUI.Label(btnRect, "Build", btnLabel);
+                if (!btnDisabled && Event.current.type == EventType.MouseDown && btnRect.Contains(Event.current.mousePosition))
+                {
+                    Event.current.Use();
+                    BuildFrame(entry);
+                }
+                if (!btnDisabled) EditorGUIUtility.AddCursorRect(btnRect, MouseCursor.Link);
             }
 
             EditorGUILayout.EndScrollView();
@@ -618,7 +645,14 @@ namespace Afterhours.FigmaBridge.Editor
         private void LoadBuildFrames()
         {
             _buildFrames = new List<BuildFrameEntry>();
-            var figmaFile = FigmaDocumentCache.Load();
+            // Use in-memory cache — only re-parse JSON when file on disk changed
+            var diskTime = FigmaDocumentCache.LastModified ?? DateTime.MinValue;
+            if (_cachedFigmaFile == null || diskTime > _cachedFigmaFileTime)
+            {
+                _cachedFigmaFile = FigmaDocumentCache.Load();
+                _cachedFigmaFileTime = diskTime;
+            }
+            var figmaFile = _cachedFigmaFile;
             if (figmaFile?.document?.children == null) return;
 
             var sectionFilter = _settings != null ? _settings.SelectedSection : "";
@@ -814,8 +848,8 @@ namespace Afterhours.FigmaBridge.Editor
                 using (new EditorGUI.DisabledGroupScope(
                     string.IsNullOrEmpty(_tokenInput) || _settings == null || string.IsNullOrEmpty(_settings.FileId)))
                 {
-                    if (GUILayout.Button("Refresh Sections", GUILayout.Height(24)))
-                        RefreshSections();
+                    DrawColorButton("Refresh Sections", BtnGray, BtnGrayHover,
+                        () => RefreshSections(), GUILayout.Height(28));
                 }
             }
             else
@@ -916,16 +950,13 @@ namespace Afterhours.FigmaBridge.Editor
             GUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
 
-            var prevBg = GUI.backgroundColor;
-            GUI.backgroundColor = Accent;
-            if (GUILayout.Button("Create Settings Asset", GUILayout.Height(30), GUILayout.Width(200)))
+            DrawColorButton("Create Settings Asset", BtnGray, BtnGrayHover, () =>
             {
                 _settings = UnityFigmaBridgeSettingsProvider.GenerateUnityFigmaBridgeSettingsAsset();
                 _serializedSettings = new SerializedObject(_settings);
                 AppendLog("Settings asset created");
                 EditorGUIUtility.PingObject(_settings);
-            }
-            GUI.backgroundColor = prevBg;
+            }, GUILayout.Height(30), GUILayout.Width(200));
 
             GUILayout.FlexibleSpace();
             GUILayout.EndHorizontal();
@@ -947,11 +978,14 @@ namespace Afterhours.FigmaBridge.Editor
                 if (_logEntries.Count > 0)
                     DrawBadge($"{_logEntries.Count}", Accent);
                 GUILayout.FlexibleSpace();
-                if (_logEntries.Count > 0 && DrawSmallButton("Clear"))
-                    _logEntries.Clear();
+                if (_logEntries.Count > 0)
+                {
+                    DrawColorButton("Clear", BtnRed, BtnRedHover, () => _logEntries.Clear(), GUILayout.Width(60), GUILayout.Height(20));
+                }
                 EditorGUILayout.EndHorizontal();
             });
 
+            GUILayout.Space(4);
             DrawSeparator();
             GUILayout.Space(4);
 
@@ -1592,7 +1626,10 @@ namespace Afterhours.FigmaBridge.Editor
         }
 
         private static void DrawAccentButton(string text, Action onClick)
-            => DrawColorButton(text, Accent, new UnityEngine.Color(0.35f, 0.62f, 0.98f), onClick);
+            => DrawColorButton(text, Accent, AccentHover, onClick);
+
+        private static void DrawGrayButton(string text, Action onClick, params GUILayoutOption[] options)
+            => DrawColorButton(text, BtnGray, BtnGrayHover, onClick, options);
 
         private static void DrawColorButton(string text, UnityEngine.Color color, UnityEngine.Color hoverColor, Action onClick, params GUILayoutOption[] options)
         {
@@ -1624,8 +1661,9 @@ namespace Afterhours.FigmaBridge.Editor
         {
             var style = new GUIStyle(EditorStyles.miniButton)
             {
-                fixedHeight = 20, fontSize = 10,
+                fixedHeight = 18, fontSize = 10,
                 padding = new RectOffset(8, 8, 2, 2),
+                normal = { textColor = Pro ? C(0.85f) : C(0.18f) },
             };
             return GUILayout.Button(text, style);
         }

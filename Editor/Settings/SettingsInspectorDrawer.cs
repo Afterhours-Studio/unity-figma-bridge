@@ -26,10 +26,14 @@ namespace Afterhours.FigmaBridge.Editor
         /// <summary>
         /// Draw settings split into Import / Build sub-tabs.
         /// </summary>
+        private static readonly UnityEngine.Color TabActive = new(0.24f, 0.44f, 0.74f);
+        private static readonly UnityEngine.Color TabHover = new(0.28f, 0.28f, 0.28f);
+        private static readonly UnityEngine.Color TabBg = new(0.16f, 0.16f, 0.16f);
+
         public static void DrawSettings(UnityFigmaBridgeSettings settings, SerializedObject so)
         {
             EnsureStyles();
-            s_SettingsTab = GUILayout.Toolbar(s_SettingsTab, SettingsTabs);
+            DrawSettingsTabBar();
             GUILayout.Space(6);
             so.Update();
 
@@ -147,6 +151,85 @@ namespace Afterhours.FigmaBridge.Editor
             }
 
             return applyChanges;
+        }
+
+        private static float s_HighlightX = -1;
+        private static double s_AnimStart;
+        private static int s_AnimFrom;
+        private const float AnimDuration = 0.25f;
+
+        private static void DrawSettingsTabBar()
+        {
+            bool pro = EditorGUIUtility.isProSkin;
+            var pad = 4f;
+            var gap = 2f;
+            var barRect = GUILayoutUtility.GetRect(0, 28, GUILayout.ExpandWidth(true));
+
+            if (Event.current.type == EventType.Repaint)
+                EditorGUI.DrawRect(barRect, pro ? TabBg : new UnityEngine.Color(0.84f, 0.84f, 0.84f));
+
+            var totalGap = gap * (SettingsTabs.Length - 1) + pad * 2;
+            var tabW = (barRect.width - totalGap) / SettingsTabs.Length;
+
+            // Compute target X for active tab highlight
+            var targetX = barRect.x + pad + s_SettingsTab * (tabW + gap);
+
+            // Animate highlight position
+            var animating = false;
+            if (s_HighlightX < 0) s_HighlightX = targetX; // first frame
+            if (Mathf.Abs(s_HighlightX - targetX) > 0.5f)
+            {
+                var t = (float)((EditorApplication.timeSinceStartup - s_AnimStart) / AnimDuration);
+                t = Mathf.Clamp01(t);
+                t = 1f - (1f - t) * (1f - t); // ease-out quad
+                var fromX = barRect.x + pad + s_AnimFrom * (tabW + gap);
+                s_HighlightX = Mathf.Lerp(fromX, targetX, t);
+                animating = t < 1f;
+            }
+            else
+            {
+                s_HighlightX = targetX;
+            }
+
+            // Draw animated highlight
+            if (Event.current.type == EventType.Repaint)
+            {
+                var hlRect = new Rect(s_HighlightX, barRect.y + 3, tabW, barRect.height - 6);
+                EditorGUI.DrawRect(hlRect, TabActive);
+            }
+
+            // Draw tab labels + handle clicks
+            for (int i = 0; i < SettingsTabs.Length; i++)
+            {
+                var tabRect = new Rect(barRect.x + pad + i * (tabW + gap), barRect.y + 3, tabW, barRect.height - 6);
+                bool active = s_SettingsTab == i;
+                bool hover = !active && tabRect.Contains(Event.current.mousePosition);
+
+                if (Event.current.type == EventType.Repaint && hover)
+                    EditorGUI.DrawRect(tabRect, pro ? TabHover : new UnityEngine.Color(0.88f, 0.88f, 0.88f));
+
+                var style = new GUIStyle(EditorStyles.label)
+                {
+                    fontSize = 11,
+                    fontStyle = active ? FontStyle.Bold : FontStyle.Normal,
+                    alignment = TextAnchor.MiddleCenter,
+                    normal = { textColor = active ? UnityEngine.Color.white : (pro ? new UnityEngine.Color(0.5f, 0.5f, 0.5f) : new UnityEngine.Color(0.42f, 0.42f, 0.42f)) },
+                };
+
+                if (GUI.Button(tabRect, SettingsTabs[i], style))
+                {
+                    s_AnimFrom = s_SettingsTab;
+                    s_AnimStart = EditorApplication.timeSinceStartup;
+                    s_SettingsTab = i;
+                }
+
+                EditorGUIUtility.AddCursorRect(tabRect, MouseCursor.Link);
+            }
+
+            // Keep repainting during animation
+            if (animating)
+                foreach (var w in Resources.FindObjectsOfTypeAll<EditorWindow>())
+                    if (w.titleContent.text.Contains("Figma")) { w.Repaint(); break; }
         }
     }
 }
