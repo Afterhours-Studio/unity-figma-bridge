@@ -79,6 +79,8 @@ namespace Afterhours.FigmaBridge.Editor
         private static GUIStyle s_ProgressLabel;
         private static GUIStyle s_BtnLabel;
         private static GUIStyle s_MonoTextField;
+        private static GUIStyle s_VersionToggle;
+        private static GUIStyle s_SettingsCfgLabel;
 
         private static void EnsureStyles()
         {
@@ -227,6 +229,18 @@ namespace Afterhours.FigmaBridge.Editor
             var monoFont = EditorGUIUtility.Load("Fonts/RobotoMono/RobotoMono-Regular.ttf") as Font
                 ?? Font.CreateDynamicFontFromOSFont("Consolas", 12);
             s_MonoTextField.font = monoFont;
+            s_VersionToggle = new GUIStyle
+            {
+                fontSize = 9, alignment = TextAnchor.MiddleRight,
+                padding = new RectOffset(0, 12, 0, 0),
+                normal = { textColor = MutedText },
+                hover  = { textColor = Pro ? UnityEngine.Color.white : C(0.1f) },
+            };
+            s_SettingsCfgLabel = new GUIStyle(EditorStyles.miniLabel)
+            {
+                normal = { textColor = MutedText },
+                alignment = TextAnchor.MiddleLeft,
+            };
         }
 
         // ─── Import state ────────────────────────────────
@@ -250,6 +264,7 @@ namespace Afterhours.FigmaBridge.Editor
         private SerializedObject _serializedSettings;
         private UnityFigmaBridgeSettings _settings;
         private Vector2 _pageScrollPos;
+        private bool _showSettings;
 
         // ─── Build tab state ─────────────────────────────
         private List<BuildFrameEntry> _buildFrames;
@@ -350,31 +365,60 @@ namespace Afterhours.FigmaBridge.Editor
 
         private void DrawHeader()
         {
-            // Main header bar
+            // ── Title bar (38px) ─────────────────────────
             var rect = GUILayoutUtility.GetRect(0, 38, GUILayout.ExpandWidth(true));
             if (Event.current.type == EventType.Repaint)
-            {
                 EditorGUI.DrawRect(rect, HeaderBg);
-                // Subtle bottom accent line
-                EditorGUI.DrawRect(new Rect(rect.x, rect.yMax - 1, rect.width, 1), Accent);
-            }
 
-            // Status indicator
+            // Status indicator dot
             var statusColor = _isImporting ? WarningText
                 : !string.IsNullOrEmpty(_tokenInput) ? SuccessText : MutedText;
             if (Event.current.type == EventType.Repaint)
             {
-                var dotCenter = new Vector2(rect.x + 16, rect.y + rect.height / 2);
-                // Simple circle via overlapping rects
-                EditorGUI.DrawRect(new Rect(dotCenter.x - 3, dotCenter.y - 4, 6, 8), statusColor);
-                EditorGUI.DrawRect(new Rect(dotCenter.x - 4, dotCenter.y - 3, 8, 6), statusColor);
+                var dc = new Vector2(rect.x + 16, rect.y + rect.height / 2);
+                EditorGUI.DrawRect(new Rect(dc.x - 3, dc.y - 4, 6, 8), statusColor);
+                EditorGUI.DrawRect(new Rect(dc.x - 4, dc.y - 3, 8, 6), statusColor);
             }
 
             // Title
             GUI.Label(rect, "Figma Bridge", s_HeaderTitle);
 
-            // Version badge (right side)
-            GUI.Label(rect, PackageVersion, s_VersionBadge);
+            // Version + toggle arrow — right side, clickable
+            var arrow = _showSettings ? "\u25BC" : "\u25B6";
+            GUI.Label(rect, $"{PackageVersion}  {arrow}", s_VersionToggle);
+            var toggleZone = new Rect(rect.xMax - 90, rect.y, 90, rect.height);
+            EditorGUIUtility.AddCursorRect(toggleZone, MouseCursor.Link);
+            if (Event.current.type == EventType.MouseDown && toggleZone.Contains(Event.current.mousePosition))
+            {
+                _showSettings = !_showSettings;
+                Event.current.Use();
+                Repaint();
+            }
+
+            // ── Settings sub-bar (20px) — hidden by default ──
+            Rect bottomRect = rect;
+            if (_showSettings)
+            {
+                EnsureSettingsLoaded();
+                var cfgRect = GUILayoutUtility.GetRect(0, 20, GUILayout.ExpandWidth(true));
+                if (Event.current.type == EventType.Repaint)
+                    EditorGUI.DrawRect(cfgRect, HeaderBg);
+
+                GUI.Label(new Rect(cfgRect.x + 12, cfgRect.y + 2, 52, 16), "Settings", s_SettingsCfgLabel);
+
+                EditorGUI.BeginChangeCheck();
+                _settings = (UnityFigmaBridgeSettings)EditorGUI.ObjectField(
+                    new Rect(cfgRect.x + 66, cfgRect.y + 2, cfgRect.width - 78, 16),
+                    _settings, typeof(UnityFigmaBridgeSettings), false);
+                if (EditorGUI.EndChangeCheck())
+                    _serializedSettings = null;
+
+                bottomRect = cfgRect;
+            }
+
+            // Accent line — always at bottom of header block
+            if (Event.current.type == EventType.Repaint)
+                EditorGUI.DrawRect(new Rect(rect.x, bottomRect.yMax - 1, rect.width, 1), Accent);
         }
 
         // ─── Tab Bar ─────────────────────────────────────
