@@ -13,7 +13,7 @@ https://github.com/Afterhours-Studio/unity-figma-bridge.git
 To lock a specific version:
 
 ```
-https://github.com/Afterhours-Studio/unity-figma-bridge.git#v1.0.3
+https://github.com/Afterhours-Studio/unity-figma-bridge.git#v1.0.4
 ```
 
 To always use the latest from main:
@@ -60,6 +60,9 @@ Open via **Figma Bridge > Open Window**. The window has four tabs:
 | **Export Only** | Only import nodes marked for Export in Figma |
 | **Select Pages** | Import only selected pages instead of all |
 | **Sync Depth** | Layer depth limit: 0 = full, 1 = top-level only, N = descend N levels |
+| **Smart Naming** | Format node names to `snake_case` / `PascalCase`; `[Tags]` stripped automatically |
+| **Auto 9-Slice** | Auto-detect rounded rectangles and set `Image.Type.Sliced` with borders from `cornerRadius` |
+| **Char Spacing** | `Fixed`: constant TMP character spacing offset (default −0.7). `Auto`: read from Figma node |
 
 ## How It Works
 
@@ -86,16 +89,20 @@ The **Build** tab lists every frame that has been synced at least once. Clicking
 | Figma | Unity |
 |-------|-------|
 | Frame | Prefab + RectTransform hierarchy |
-| Image fill | Downloaded PNG sprite on `FigmaImage` |
-| Vector / SVG | Server-rendered PNG on `FigmaImage` |
+| Image fill | Downloaded PNG sprite on `Image` |
+| Linear / radial gradient fill | `FigmaImage` with SDF gradient shader |
+| Vector / SVG | Server-rendered PNG on `Image` |
 | Text (no stroke) | TextMeshPro component |
 | Text (with stroke) | TextMeshPro + named outline material preset |
+| Text overflow TRUNCATE | TMP `Ellipsis` overflow + normal wrap |
 | Auto Layout (H/V) | `HorizontalLayoutGroup` / `VerticalLayoutGroup` |
 | Auto Layout (Grid) | `GridLayoutGroup` with `FixedColumnCount` |
 | Auto Layout (Wrap) | `GridLayoutGroup` with `Flexible` constraint |
 | Constraints | RectTransform anchors (LEFT, RIGHT, CENTER, stretch, scale) |
-| Ellipse / Star | `FigmaImage` with shape mask |
+| Ellipse / Star | `FigmaImage` with SDF shape |
 | `[Button]` tag in name | Unity `Button` component added |
+| `[RectMask2D]` tag in name | Unity `RectMask2D` component added |
+| `[9Slice]` / `[9Slice:N]` tag | `Image.Type.Sliced` with auto or explicit border |
 | `SafeArea` name | `SafeArea` component added |
 
 ### Folder Structure
@@ -132,11 +139,6 @@ Installed automatically via Package Manager:
 ## Credits
 
 **h1dr0n** - Development, architecture, and maintenance
-
-Built on:
-- [Inigo Quilez's 2D SDF Functions](https://iquilezles.org/articles/distfunctions2d/)
-- [krzys-h's UnityWebRequestAwaiter](https://gist.github.com/krzys-h/9062552e33dd7bd7fe4a6c12db109a1a)
-- [Jonathan Neal's Google Fonts list](https://github.com/jonathantneal/google-fonts-complete)
 
 ## License
 

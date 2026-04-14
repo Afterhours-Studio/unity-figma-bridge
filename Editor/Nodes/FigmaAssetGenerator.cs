@@ -17,7 +17,7 @@ namespace Afterhours.FigmaBridge.Editor
         
         /// <summary>
         /// Build a single frame into the scene as clean Unity UI (used by Build tab).
-        /// No Figma scripts — only standard Image, TextMeshProUGUI, LayoutGroups.
+        /// No Figma scripts - only standard Image, TextMeshProUGUI, LayoutGroups.
         /// All INSTANCE nodes are built inline as full node trees.
         /// </summary>
         public static void BuildSingleFrame(Canvas rootCanvas, Node frameNode, Node parentNode,
@@ -52,7 +52,7 @@ namespace Afterhours.FigmaBridge.Editor
         }
 
         /// <summary>
-        /// Recursively build a clean Unity UI node — no Figma scripts.
+        /// Recursively build a clean Unity UI node - no Figma scripts.
         /// </summary>
         private static GameObject BuildCleanNode(Node node, RectTransform parentTransform,
             Node parentNode, int depth, FigmaBuildContext processData)
@@ -145,10 +145,10 @@ namespace Afterhours.FigmaBridge.Editor
                     ApplyConventionTags(go, tagButton, tagRectMask);
                     return go;
                 }
-                // No image on disk — fall through to normal build
+                // No image on disk - fall through to normal build
             }
 
-            // Normal node — apply transform (clean, no LayoutElement)
+            // Normal node - apply transform (clean, no LayoutElement)
             ApplyCleanTransform(rt, node, parentNode, depth > 0);
 
             // Figma mask node
@@ -162,7 +162,7 @@ namespace Afterhours.FigmaBridge.Editor
             bool hasImageFill = ApplyCleanVisual(go, node, processData, tag9SliceBorder);
 
             // If node has an IMAGE fill loaded successfully and no text children,
-            // the image IS the complete visual — don't build redundant shape children.
+            // the image IS the complete visual - don't build redundant shape children.
             bool skipChildren = hasImageFill && !ContainsTextNode(node);
 
             if (!skipChildren)
@@ -371,7 +371,7 @@ namespace Afterhours.FigmaBridge.Editor
         }
 
         /// <summary>
-        /// Apply transform using absoluteRenderBounds — accounts for shadows, blur, outside strokes.
+        /// Apply transform using absoluteRenderBounds - accounts for shadows, blur, outside strokes.
         /// </summary>
         private static void ApplyRenderBoundsTransform(RectTransform rt, Node node, Node parentNode)
         {
@@ -395,7 +395,7 @@ namespace Afterhours.FigmaBridge.Editor
         }
 
         /// <summary>
-        /// Apply clean visual components — standard Image or TextMeshProUGUI only.
+        /// Apply clean visual components - standard Image or TextMeshProUGUI only.
         /// Returns true if an IMAGE fill sprite was loaded (node visual is complete, children are redundant).
         /// </summary>
         private static bool ApplyCleanVisual(GameObject go, Node node, FigmaBuildContext processData, float tag9SliceBorder = 0f)
@@ -516,7 +516,7 @@ namespace Afterhours.FigmaBridge.Editor
                         NodeType.STAR => FigmaImage.ShapeType.Star,
                         _ => FigmaImage.ShapeType.Rectangle,
                     };
-                    // Corner radius — normalize to 0-1 range (fraction of half shortest side)
+                    // Corner radius - normalize to 0-1 range (fraction of half shortest side)
                     var halfShort = Mathf.Min(node.size.x, node.size.y) * 0.5f;
                     if (halfShort > 0)
                     {
@@ -549,10 +549,10 @@ namespace Afterhours.FigmaBridge.Editor
         /// </summary>
         private static float Resolve9SliceBorder(Node node, Sprite sprite, float tag9SliceBorder, bool autoSlice)
         {
-            // [9Slice:N] tag — explicit border
+            // [9Slice:N] tag - explicit border
             if (tag9SliceBorder > 0) return tag9SliceBorder;
 
-            // [9Slice] tag without value — auto = 25% of shortest side
+            // [9Slice] tag without value - auto = 25% of shortest side
             if (tag9SliceBorder < 0 && sprite != null && sprite.texture != null)
                 return Mathf.Min(sprite.texture.width, sprite.texture.height) * 0.25f;
 
@@ -655,7 +655,9 @@ namespace Afterhours.FigmaBridge.Editor
             var text = go.AddComponent<TMPro.TextMeshProUGUI>();
             text.text = node.characters;
             text.fontSize = node.style.fontSize;
-            text.characterSpacing = -0.7f;
+            text.characterSpacing = processData.Settings.CharacterSpacingMode == CharacterSpacingMode.Auto
+                ? node.style?.letterSpacing ?? processData.Settings.CharacterSpacing
+                : processData.Settings.CharacterSpacing;
 
             // Color
             text.color = FigmaNodeManager.ResolveTextColor(node);

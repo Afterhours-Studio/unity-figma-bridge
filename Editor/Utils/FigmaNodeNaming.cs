@@ -24,7 +24,7 @@ namespace Afterhours.FigmaBridge.Editor
             // 1. Strip [Tag] prefixes
             var name = Regex.Replace(rawName ?? "", @"\[.*?\]", "").Trim();
 
-            // 2. Remove special chars — keep letters, digits, spaces, underscores
+            // 2. Remove special chars - keep letters, digits, spaces, underscores
             name = Regex.Replace(name, @"[^a-zA-Z0-9 _]", "");
 
             // 3. Collapse multiple spaces
@@ -34,7 +34,7 @@ namespace Afterhours.FigmaBridge.Editor
             if (string.IsNullOrEmpty(name))
                 return $"FigmaElement_{(++_emptyCounter):D3}";
 
-            // 5. No spaces — already formatted
+            // 5. No spaces - already formatted
             if (!name.Contains(' '))
                 return name;
 

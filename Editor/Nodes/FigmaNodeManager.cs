@@ -10,14 +10,11 @@ namespace Afterhours.FigmaBridge.Editor
 {
     public static class FigmaNodeManager
     {
-        /// <summary>
-        /// Adjustment to character spacing to compensate for differences between Figma and TextMeshPro rendering
-        /// </summary>
-        private const float FIGMA_CHARACTER_SPACING_ADJUSTMENT = -0.7f;
+
 
         private static bool ShouldUseTMP(FigmaBuildContext data)
         {
-            // If this file compiles, TMPro is present — no runtime reflection needed.
+            // If this file compiles, TMPro is present - no runtime reflection needed.
             if (data?.Settings == null) return true;
             return data.Settings.TextMode != TextRenderMode.LegacyText;
         }
@@ -144,7 +141,9 @@ namespace Afterhours.FigmaBridge.Editor
                     text.text = node.characters;
                     text.color = ResolveTextColor(node);
                     text.fontSize = node.style.fontSize;
-                    text.characterSpacing = FIGMA_CHARACTER_SPACING_ADJUSTMENT;
+                    text.characterSpacing = figmaImportProcessData.Settings.CharacterSpacingMode == CharacterSpacingMode.Auto
+                        ? node.style.letterSpacing
+                        : figmaImportProcessData.Settings.CharacterSpacing;
                    
                     text.horizontalAlignment = node.style.textAlignHorizontal switch
                     {

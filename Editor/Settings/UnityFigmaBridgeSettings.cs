@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -8,7 +8,7 @@ namespace Afterhours.FigmaBridge.Editor
     public class UnityFigmaBridgeSettings : ScriptableObject
     {
        
-        [Tooltip("Figma URL — supports both Document URLs and Page/Frame URLs with node-id")]
+        [Tooltip("Figma URL - supports both Document URLs and Page/Frame URLs with node-id")]
         public string DocumentUrl;
         
         [Space(10)]
@@ -33,7 +33,7 @@ namespace Afterhours.FigmaBridge.Editor
         [Tooltip("Download missing fonts from Google Fonts automatically")]
         public bool EnableGoogleFontsDownloads = false;
 
-        [Tooltip("Never server-render text nodes — use TMP/Text components instead of downloading images")]
+        [Tooltip("Never server-render text nodes - use TMP/Text components instead of downloading images")]
         public bool SkipTextImages = true;
 
         [Tooltip("Text rendering backend. Auto = TMP if available, otherwise legacy Text.")]
@@ -51,6 +51,12 @@ namespace Afterhours.FigmaBridge.Editor
 
         [Tooltip("Auto-detect rounded rectangles and set Image.Type.Sliced with sprite borders from cornerRadius")]
         public bool AutoSlice9 = true;
+
+        [Tooltip("Fixed: apply a constant character spacing offset to all TMP text. Auto: read letterSpacing from the Figma node.")]
+        public CharacterSpacingMode CharacterSpacingMode = CharacterSpacingMode.Fixed;
+
+        [Tooltip("Character spacing adjustment for TextMeshPro to compensate for Figma/TMP rendering differences. Only used when mode is Fixed.")]
+        public float CharacterSpacing = -0.7f;
 
         [HideInInspector]
         public string SelectedSection = "";
@@ -112,6 +118,12 @@ namespace Afterhours.FigmaBridge.Editor
         Auto,       // TMP if available, legacy Text fallback
         TextMeshPro,
         LegacyText,
+    }
+
+    public enum CharacterSpacingMode
+    {
+        Fixed,  // Apply a constant offset (CharacterSpacing field)
+        Auto,   // Read letterSpacing from the Figma node directly
     }
 
     [Serializable]

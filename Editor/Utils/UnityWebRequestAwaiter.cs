@@ -30,7 +30,7 @@ namespace Afterhours.FigmaBridge.Editor
             this.continuation = continuation;
             if (asyncOp.isDone)
             {
-                // Already completed before we subscribed — invoke immediately
+                // Already completed before we subscribed - invoke immediately
                 continuation();
             }
             else

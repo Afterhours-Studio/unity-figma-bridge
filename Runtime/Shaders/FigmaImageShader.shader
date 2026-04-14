@@ -1,4 +1,4 @@
-// FigmaImageShader — UGUI shader for FigmaImage component.
+// FigmaImageShader - UGUI shader for FigmaImage component.
 // Supports: solid fill, linear/radial gradient (up to 16 stops),
 // SDF shapes (rounded rect, ellipse, star), stroke, arc range.
 // Built-in Render Pipeline only.

@@ -52,7 +52,7 @@ namespace Afterhours.FigmaBridge.Editor
     public static class FontManager
     {
         /// <summary>
-        /// Outline thickness buckets — snaps continuous Figma outline values to a small
+        /// Outline thickness buckets - snaps continuous Figma outline values to a small
         /// fixed set so we create far fewer material presets.
         /// Each entry: (upper threshold, quantized value, human label).
         /// </summary>
@@ -251,7 +251,7 @@ namespace Afterhours.FigmaBridge.Editor
             var materialName = $"{fontMapEntry.FontAsset.name}{nameSuffix}";
             newMaterialPreset.name = materialName;
 
-            // Use EnableKeyword/DisableKeyword — shader_feature keywords must be toggled as global keywords
+            // Use EnableKeyword/DisableKeyword - shader_feature keywords must be toggled as global keywords
             if (shadow)
             {
                 newMaterialPreset.EnableKeyword("UNDERLAY_ON");

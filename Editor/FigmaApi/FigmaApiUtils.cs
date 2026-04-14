@@ -11,7 +11,7 @@ using UnityEngine.Networking;
 namespace Afterhours.FigmaBridge.Editor
 {
     /// <summary>
-    /// Parsed result from a Figma URL — contains file ID and optional node ID.
+    /// Parsed result from a Figma URL - contains file ID and optional node ID.
     /// </summary>
     public readonly struct FigmaUrlInfo
     {
@@ -147,7 +147,7 @@ namespace Afterhours.FigmaBridge.Editor
         }
 
         /// <summary>
-        /// Full URL parser — extracts file ID and optional node-id from page/frame URLs.
+        /// Full URL parser - extracts file ID and optional node-id from page/frame URLs.
         /// Supports both legacy (/file/) and modern (/design/) URL formats.
         /// </summary>
         public static FigmaUrlInfo ParseFigmaUrl(string url)
@@ -345,7 +345,7 @@ namespace Afterhours.FigmaBridge.Editor
         {
             var downloadList = new List<FigmaDownloadQueueItem>();
 
-            // Collect imageRefs that have a valid server render — those will be skipped from image fills
+            // Collect imageRefs that have a valid server render - those will be skipped from image fills
             var serverRenderedImageRefs = new HashSet<string>();
             foreach (var srd in serverRenderData)
             {
@@ -362,7 +362,7 @@ namespace Afterhours.FigmaBridge.Editor
                 }
             }
 
-            // Image fills — use node name as filename, skip if already server-rendered
+            // Image fills - use node name as filename, skip if already server-rendered
             foreach (var keyPair in imageFillData.meta.images)
             {
                 if (!foundImageFills.TryGetValue(keyPair.Key, out var ctx)) continue;
@@ -383,7 +383,7 @@ namespace Afterhours.FigmaBridge.Editor
             }
             FigmaPaths.ClearContext();
 
-            // Server render images — set context per node for folder structure
+            // Server render images - set context per node for folder structure
             foreach (var serverRenderDataEntry in serverRenderData)
             {
                 foreach (var keyPair in serverRenderDataEntry.images)

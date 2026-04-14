@@ -9,7 +9,7 @@ namespace Afterhours.FigmaBridge.Editor
         private const string DEFAULT_ROOT = "Assets/Figma";
 
         /// <summary>
-        /// Root folder for assets — reads from settings if available, otherwise uses default.
+        /// Root folder for assets - reads from settings if available, otherwise uses default.
         /// </summary>
         public static string FigmaAssetsRootFolder
         {
@@ -26,7 +26,7 @@ namespace Afterhours.FigmaBridge.Editor
         public static string FigmaFontMaterialPresetsFolder => $"{FigmaAssetsRootFolder}/FontMaterialPresets";
         public static string FigmaFontsFolder => $"{FigmaAssetsRootFolder}/Fonts";
 
-        // Legacy flat folders — kept for backwards compat lookups
+        // Legacy flat folders - kept for backwards compat lookups
         public static string FigmaImageFillFolder => $"{FigmaAssetsRootFolder}/ImageFills";
 
         // ─── Current context (set during import) ─────────

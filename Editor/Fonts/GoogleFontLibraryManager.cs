@@ -224,7 +224,7 @@ namespace Afterhours.FigmaBridge.Editor
                 string.Equals(kv.Key, fontName, StringComparison.OrdinalIgnoreCase));
             if (exact.Value != null) return exact.Value;
 
-            // Prefix fallback: "Baloo" → "Baloo 2", "Baloo Bhai", etc. — pick shortest match
+            // Prefix fallback: "Baloo" → "Baloo 2", "Baloo Bhai", etc. - pick shortest match
             var prefixMatch = s_FontDefinitions
                 .Where(kv => kv.Key.StartsWith(fontName, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(kv => kv.Key.Length)

@@ -86,16 +86,16 @@ namespace Afterhours.FigmaBridge.Editor
         }
 
         /// <summary>
-        /// Public entry point for triggering sync — callable by EditorWindow or menu item
+        /// Public entry point for triggering sync - callable by EditorWindow or menu item
         /// </summary>
         /// <summary>
-        /// Selected frame node IDs — set by EditorWindow before calling StartSyncAsync.
+        /// Selected frame node IDs - set by EditorWindow before calling StartSyncAsync.
         /// If empty, all frames are imported.
         /// </summary>
         public static List<string> SelectedFrameIds { get; set; } = new();
 
         /// <summary>
-        /// When true, bypass incremental sync hash check — re-download all assets.
+        /// When true, bypass incremental sync hash check - re-download all assets.
         /// Reset to false after sync completes.
         /// </summary>
         public static bool ForceSync { get; set; }
@@ -130,7 +130,7 @@ namespace Afterhours.FigmaBridge.Editor
             var figmaFile = await DownloadFigmaDocument(s_UnityFigmaBridgeSettings.FileId);
             if (figmaFile == null) return;
 
-            // Cache document for Build tab (non-critical — don't break import if this fails)
+            // Cache document for Build tab (non-critical - don't break import if this fails)
             try { FigmaDocumentCache.Save(figmaFile); }
             catch (Exception e) { Debug.LogWarning($"[FigmaBridge] Cache save failed (non-critical): {e.Message}"); }
 
@@ -291,7 +291,7 @@ namespace Afterhours.FigmaBridge.Editor
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvasGameObject.AddComponent<GraphicRaycaster>();
 
-            // CanvasScaler — apply reference resolution from settings
+            // CanvasScaler - apply reference resolution from settings
             var scaler = canvasGameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(
@@ -323,14 +323,14 @@ namespace Afterhours.FigmaBridge.Editor
 
         private static void ReportProgress(string message, float fraction)
         {
-            // EditorUtility.DisplayProgressBar is required — Unity Editor only pumps
+            // EditorUtility.DisplayProgressBar is required - Unity Editor only pumps
             // async operations (UnityWebRequest) while a modal progress bar is active.
             EditorUtility.DisplayProgressBar(PROGRESS_BOX_TITLE, message, Mathf.Max(fraction, 0f));
             OnProgressChanged?.Invoke(message, fraction);
         }
 
         /// <summary>
-        /// Public progress reporting — used by FigmaApiUtils during downloads.
+        /// Public progress reporting - used by FigmaApiUtils during downloads.
         /// </summary>
         public static void ReportProgressPublic(string message, float fraction)
         {
@@ -545,7 +545,7 @@ namespace Afterhours.FigmaBridge.Editor
                 selectedFrameIds, sectionFilter);
             await figmaFontMapTask;
 
-            // Import done — assets downloaded, fonts mapped. Build tab handles scene construction.
+            // Import done - assets downloaded, fonts mapped. Build tab handles scene construction.
             ReportProgress("Import complete", 1f);
             EditorUtility.ClearProgressBar();
             AssetDatabase.Refresh();
@@ -620,7 +620,7 @@ namespace Afterhours.FigmaBridge.Editor
                 new System.Collections.Generic.List<string> { frameNodeId },
                 s_UnityFigmaBridgeSettings.SelectedSection);
 
-            // Minimal process data — only what clean build needs
+            // Minimal process data - only what clean build needs
             var allPageIds = FigmaDataUtils.GetPageNodes(figmaFile).Select(p => p.id).ToList();
             var externalComponents = FigmaDataUtils.FindMissingComponentDefinitions(figmaFile);
             var serverRenderNodes = FigmaDataUtils.FindAllServerRenderNodesInFile(

@@ -418,7 +418,7 @@ namespace Afterhours.FigmaBridge.Editor
             if (skipTextImages && figmaNode.type == NodeType.TEXT) return;
 
             // Node with export settings → download as server-rendered image, don't recurse deeper
-            // Skip screen frames — they are layout containers, not flat images
+            // Skip screen frames - they are layout containers, not flat images
             if (canAdd && hasExport && recursiveNodeDepth > 0 && !isScreenFrame)
             {
                 Debug.Log($"[ServerRender] EXPORT: '{figmaNode.name}' ({figmaNode.id}) type={figmaNode.type} depth={recursiveNodeDepth} section={currentSection} frame={currentFrame}");

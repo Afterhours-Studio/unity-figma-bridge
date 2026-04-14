@@ -67,10 +67,18 @@ namespace Afterhours.FigmaBridge.Editor
             DrawProp(so, "RunTimeAssetsScenePath", "Scene Path",       "Scene path for runtime assets. Created automatically if it does not exist.");
             DrawCanvasSize(so);
             DrawProp(so, "EnableAutoLayout",  "Auto Layout",           "Convert Figma Auto Layout to Unity Layout Groups (Horizontal/Vertical)");
-            DrawProp(so, "SkipTextImages",    "Skip Text Images",      "Never server-render text nodes — use TMP/Text components instead of downloading images");
+            DrawProp(so, "SkipTextImages",    "Skip Text Images",      "Never server-render text nodes - use TMP/Text components instead of downloading images");
             DrawProp(so, "TextMode",          "Text Mode",             "Auto = TMP if available, else legacy Text. Force TextMeshPro or LegacyText to override.");
             DrawProp(so, "SmartNaming",       "Smart Naming",          "Format node names to snake_case or PascalCase. [Tags] are stripped automatically.");
-            DrawProp(so, "AutoSlice9",       "Auto 9-Slice",          "Auto-detect rounded rectangles and set Image.Type.Sliced with sprite borders from cornerRadius");
+            DrawProp(so, "AutoSlice9",            "Auto 9-Slice",    "Auto-detect rounded rectangles and set Image.Type.Sliced with sprite borders from cornerRadius");
+            DrawProp(so, "CharacterSpacingMode",  "Character Spacing",    "Fixed: constant offset applied to all TMP text. Auto: read letterSpacing from the Figma node.");
+            var modeProp = so.FindProperty("CharacterSpacingMode");
+            if (modeProp != null && modeProp.enumValueIndex == (int)CharacterSpacingMode.Fixed)
+            {
+                EditorGUI.indentLevel++;
+                DrawProp(so, "CharacterSpacing", "Value", "Constant spacing offset for TMP text (default -0.7). Compensates for Figma/TMP rendering differences.");
+                EditorGUI.indentLevel--;
+            }
         }
 
         private static void DrawCanvasSize(SerializedObject so)
