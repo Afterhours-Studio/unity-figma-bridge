@@ -279,7 +279,7 @@ namespace Afterhours.FigmaBridge.Editor
 
         // ─── Lifecycle ───────────────────────────────────
 
-        [MenuItem("Window/Figma Bridge")]
+        [MenuItem("Tools/Figma Bridge/Dashboard", priority = 100)]
         public static void Open()
         {
             var w = GetWindow<FigmaBridgeEditorWindow>("Figma Bridge");
